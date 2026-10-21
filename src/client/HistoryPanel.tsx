@@ -67,19 +67,25 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
                 : formatMoneyRange(view.cost.amountMicros, view.cost.amountMicrosMax, view.cost.currency)}
               hint={view.cost === null
                 ? undefined
-                : view.cost.amountMicrosMax !== undefined
-                  ? t('cost.range')
-                  : view.cost.complete ? undefined : t('cost.partial')}
+                : view.costBasis === 'bands'
+                  ? t('cost.bands')
+                  : view.cost.amountMicrosMax !== undefined
+                    ? t('cost.range')
+                    : view.cost.complete ? undefined : t('cost.partial')}
             />
           </div>
           <Section title={t('history.daily')}>
             <DailyBars days={view.days} t={t} />
-            <div className="dsu-note">{t('history.daily.note')}</div>
+            <div className="dsu-note">
+              {view.costBasis === 'bands' ? t('history.daily.bandsNote') : t('history.daily.note')}
+            </div>
           </Section>
-          {view.missingCount > 0 && (
+          {view.missingCount + view.fallbackCount > 0 && (
             <InlineMessage tone="warn">
               <div className="dsu-inline-action">
-                <span>{t('history.missing', { n: view.missingCount })}</span>
+                <span>{view.missingCount > 0
+                  ? t('history.missing', { n: view.missingCount })
+                  : t('history.missingBands', { n: view.fallbackCount })}</span>
                 <button type="button" className="dsu-btn" onClick={onBackfill} disabled={backfill === 'loading'}>
                   {backfill === 'loading' ? t('history.measuring') : t('history.measure')}
                 </button>

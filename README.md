@@ -8,12 +8,15 @@ The plugin adds two right-Sidebar pages:
 
 | Page | Shows |
 |---|---|
-| **Usage** | Session overview (tokens, cache hit, cost), context-window occupancy and composition, session metrics (turns, steps, model/tool time, first-token latency, decode speed) |
+| **Usage** | Session overview (tokens, cache hit, cost), context-window occupancy and composition, session metrics, and a per-request table (Beijing time, peak/off-peak band, model, input/cache/output, that request's cost) |
 | **Usage history** | Tokens, cache hit rate, active days and a per-day chart aggregated across every conversation, for 7 days / 30 days / all |
 
-It is presentation-only: every figure comes from session projections the
-Harness already publishes. No model-visible content, no session events and no
-Host state are added.
+The Host half registers two session projections, so the panel prices each
+request in the billing band it actually ran in, keeps per-request figures across
+a reload, and reads every live conversation independently of which one a
+browser has open. No model-visible content and no session events are added; the
+projections are derived from the committed log and checkpointed by the Harness
+projection cache.
 
 ## Requirements
 
@@ -52,8 +55,43 @@ Open the panels in either of two ways:
 The right Sidebar starts collapsed, and a composition may replace the
 conversation session header, so the composer button is the reliable entry.
 
-To upgrade a local checkout after rebuilding, reinstall the bundle and restart
-the app; the browser module generation is only reloaded on restart.
+The Host half registers projections at startup: after installing or upgrading,
+restart `dsh web` (a page reload alone does not register them), then reload the
+page.
+
+## Per-request data
+
+Two Host projections do the work:
+
+| Projection | Holds | Limits (default) |
+|---|---|---|
+| `usageSteps` | Recent requests: start time, turn/step, provider/model, band, four token buckets | 200 folded, the latest 20 reach the panel |
+| `usageBands` | Lifetime and per-day rollup, split by billing band and model | 90 days retained |
+
+- **Bands** follow DeepSeek's rule: Beijing time Monday-Friday 09:00-12:00 and
+  14:00-18:00 is peak; everything else is off-peak at half price. Holidays are
+  configured, not derived: `holidays: ['2026-10-01', ...]` under `config:` in
+  the bundle patch marks those Beijing days as off-peak.
+- **Persistence** is the Harness projection cache: reopening a conversation or
+  restarting the app restores both projections from the checkpoint.
+- **Multiple conversations** are folded independently by the Host, whether or
+  not a browser has them open; the history page finds their rollups in the
+  session-list projection values.
+- **Requests whose log entry names no route** (a failed attempt before the
+  first message) are priced at the conversation's current route.
+
+Tune the limits in the bundle patch:
+
+```yaml
+- insert:
+    - id: usage-insights
+      name: dsh-usage-insights
+      config:
+        stepHistory: 200
+        stepWindow: 20
+        bandDays: 90
+        holidays: []
+```
 
 ## Pricing (optional)
 
@@ -93,10 +131,13 @@ Rates are **per million tokens**. The formula is the one Reasonix uses:
 before summing, so sums never drift in floating point. Two consequences of the
 cumulative projection matter here:
 
-- **A two-band table yields a range.** The token projections are cumulative, so
-  the panel cannot tell which band each request ran in. It prices every token
-  off-peak (lower bound) and at peak (upper bound) and shows e.g.
-  `¥3.70 – ¥7.40`. A single-band table shows one amount.
+- **Cost is exact when the band rollup is available.** Every request is priced
+  in the band its start fell in, so the panel shows one amount labelled
+  "priced per request band".
+- **A fallback conversation yields a range.** A conversation whose band rollup
+  has not been read yet is priced from its cumulative counters: every token
+  off-peak (lower bound) and at peak (upper bound), shown as e.g.
+  `¥3.70 – ¥7.40` with a *Load missing* control.
 - **Unpriced routes never show `0`.** A route with no matching entry and no
   `fallback` is reported as *unpriced*; a total that mixes priced and unpriced
   usage is marked partial. History is never repriced; the figures are an
@@ -120,18 +161,23 @@ The context composition and the projected size are estimates by design: the
 Harness prices text at a fixed density and anchors only to provider-reported
 prompt sizes. Treat them as reference figures, never as billing records.
 
-## Known limitations (v0.1)
+## Known limitations (v0.3)
 
-- **No per-turn table.** The running panel shows session totals only; a
-  per-turn and per-model breakdown needs a Host-side projection and is planned
-  for v0.2.
-- **No reasoning-token bucket.** The cumulative `tokenUsage` projection merges
-  reasoning into output; `TokenUsage.reasoningTokens` is not projected.
-- **Pricing lives in source.** Edit `src/client/config.ts` and rebuild; the
-  Host plugin `Config` seam arrives with v0.2.
-- **Daily buckets use each conversation's last activity day.** The session list
-  exposes `updatedAt` but no per-turn timestamps, so a conversation active
-  across several days lands on one day. The panel labels this.
+- **The request table is a window.** The Host folds the latest 200 requests and
+  the panel receives the latest 20 of them; older requests stay only in the
+  session log. The per-band rollup still counts every request.
+- **Band retention is 90 days.** Daily rows older than that are dropped from the
+  rollup, while its lifetime totals keep counting them.
+- **Holidays are configuration.** A mainland holiday that is not listed in
+  `holidays` is billed as a peak weekday, so its cost is over-estimated.
+- **No reasoning-token bucket in the cumulative view.** `usageSteps` carries
+  `reasoningTokens` per request, but the session-level `tokenUsage` projection
+  merges reasoning into output.
+- **Pricing lives in source.** Edit `src/client/config.ts` and rebuild.
+- **Days are exact only with the band rollup.** A conversation that still falls
+  back to cumulative counters lands on its last activity day and the panel
+  labels that; a conversation with a rollup counts each request on the day it
+  ran.
 - **Subagent conversations are separate rows.** Their tokens are real, so they
   are included in the history totals and in the conversation count.
 - **Cold rows without a projection checkpoint stay missing** until the

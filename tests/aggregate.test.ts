@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import type { HistorySessionInput, ModelRef, PricingTable, TokenBuckets } from '../src/client/contract.ts'
 import { aggregateHistory, dayKey, RANGE_DAYS } from '../src/lib/aggregate.ts'
 
@@ -86,12 +86,14 @@ describe('aggregateHistory', () => {
       sessionCount: 0,
       measuredCount: 0,
       missingCount: 0,
+      fallbackCount: 0,
       buckets: emptyBuckets,
       totalTokens: 0,
       cacheRate: null,
       activeDays: 0,
       days: [],
       cost: null,
+      costBasis: 'none',
     })
   })
 

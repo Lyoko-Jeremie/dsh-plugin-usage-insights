@@ -1,3 +1,8 @@
 - insert:
     - id: usage-insights
       name: dsh-usage-insights
+      config:
+        stepHistory: 200
+        stepWindow: 20
+        bandDays: 90
+        holidays: []

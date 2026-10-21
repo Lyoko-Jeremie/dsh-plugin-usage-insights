@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  formatBeijingTime,
   formatCount,
   formatDuration,
   formatMoney,
@@ -136,6 +137,15 @@ describe('formatMoney', () => {
   it('uses the currency symbol of the given code', () => {
     expect(formatMoney(1_000_000, 'EUR')).toBe('€1.00')
     expect(formatMoney(1_000_000, 'CNY')).toBe('¥1.00')
+  })
+})
+
+describe('formatBeijingTime', () => {
+  it('renders the request start in Beijing time', () => {
+    // 02:05 UTC is 10:05 in Beijing.
+    expect(formatBeijingTime(Date.UTC(2026, 9, 21, 2, 5))).toBe('10-21 10:05')
+    // 17:30 UTC is 01:30 the next Beijing day.
+    expect(formatBeijingTime(Date.UTC(2026, 9, 21, 17, 30))).toBe('10-22 01:30')
   })
 })
 

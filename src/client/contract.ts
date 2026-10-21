@@ -7,6 +7,7 @@
  * of the projection wire values so the derivations stay pure and testable
  * without the Harness runtime.
  */
+import type { BillingBand } from '../shared/band.js'
 import type { UsageInsightKey } from './locales/en.ts'
 
 /** Namespace-bound translate function handed to a registered slot component. */
@@ -104,6 +105,69 @@ export interface BreakdownView {
   messageTokens: number
 }
 
+/** One billed request as the Host's `usageSteps` projection reports it. */
+export interface UsageStepView {
+  /** Start of the step that issued the request. */
+  at: number
+  turn: number
+  step: number
+  provider: string
+  model: string
+  /** Billing band the request start falls in, resolved by the Host. */
+  band: BillingBand
+  uncachedInputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+  outputTokens: number
+  reasoningTokens: number
+}
+
+/** One request plus its price, ready for the table. */
+export interface StepDetailView extends UsageStepView {
+  /** Price of this request in its own band; null when the route is unpriced. */
+  cost: CostView | null
+}
+
+/** The recent requests a session's `usageSteps` view carries. */
+export interface StepActivityView {
+  /** Newest last; bounded by the Host's configured window. */
+  steps: readonly StepDetailView[]
+  /** Requests the Host has folded, including those outside the window. */
+  totalSteps: number
+  /** Requests folded but not carried in `steps`. */
+  omittedSteps: number
+}
+
+/** One model's counters inside one band. */
+export interface BandModelView {
+  provider: string
+  model: string
+  requests: number
+  uncachedInputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+  outputTokens: number
+  reasoningTokens: number
+}
+
+/** One day split by billing band. */
+export interface BandDayView {
+  /** Beijing `YYYY-MM-DD`. */
+  day: string
+  peak: readonly BandModelView[]
+  offPeak: readonly BandModelView[]
+}
+
+/** The Host's `usageBands` view: lifetime totals plus one row per day. */
+export interface UsageBandsView {
+  days: readonly BandDayView[]
+  /** Lifetime counters by band (days outside the retention window still count). */
+  total: { peak: readonly BandModelView[]; offPeak: readonly BandModelView[] }
+}
+
+/** How a cost figure was obtained, so the panel can label its accuracy. */
+export type CostBasis = 'bands' | 'range' | 'none'
+
 /** Everything the single-conversation panel renders. */
 export interface SessionUsageView {
   buckets: TokenBuckets
@@ -129,6 +193,10 @@ export interface SessionUsageView {
   breakdown: BreakdownView | null
   model: ModelRef | null
   cost: CostView | null
+  /** How `cost` was derived. */
+  costBasis: CostBasis
+  /** Recent requests with times and bands; null until the Host projection is available. */
+  stepActivity: StepActivityView | null
   /** False until the first provider usage lands. */
   hasUsage: boolean
 }
@@ -158,6 +226,8 @@ export interface HistoryView {
   measuredCount: number
   /** Rows the range included but that carried no usage value. */
   missingCount: number
+  /** Conversations priced from cumulative counters because they carried no band rollup. */
+  fallbackCount: number
   buckets: TokenBuckets
   totalTokens: number
   cacheRate: number | null
@@ -166,16 +236,20 @@ export interface HistoryView {
   /** Ascending by day; only days with a conversation in range appear. */
   days: DayTotal[]
   cost: CostView | null
+  /** How `cost` and `days` were derived. */
+  costBasis: CostBasis
 }
 
 /** One conversation row fed into the cross-conversation aggregation. */
 export interface HistorySessionInput {
   id: string
-  /** Last durable activity; the day the conversation's tokens are attributed to. */
+  /** Last durable activity; the fallback day when the conversation has no band rollup. */
   updatedAt: number
   tokenUsage?: TokenBuckets
   /** Route of the conversation, when the caller knows it; null prices by fallback. */
   model: ModelRef | null
+  /** Per-day, per-band rollup when the Host projection is available. */
+  bands?: UsageBandsView
 }
 
 /** Props of the single-conversation panel body. */

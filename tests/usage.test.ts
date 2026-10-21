@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import type { BreakdownView, PricingTable } from '../src/client/contract.ts'
 import { deriveSessionUsage } from '../src/lib/usage.ts'
 
@@ -100,6 +100,8 @@ describe('deriveSessionUsage', () => {
       breakdown: null,
       model: null,
       cost: null,
+      costBasis: 'range',
+      stepActivity: null,
       hasUsage: false,
     })
   })

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Token pricing for the usage panel.
  *
  * Prices are plugin-owned configuration: the Harness reports token counts, not
@@ -12,6 +12,7 @@
  * shows that range rather than one fabricated number, and no band's rate is
  * ever applied to a token the route could not price.
  */
+import type { BillingBand } from '../shared/band.js'
 import type {
   CostView, ModelRef, PriceRates, PricingTable, TokenBuckets,
 } from '../client/contract.ts'
@@ -42,6 +43,37 @@ export function priceBuckets(table: PricingTable, model: ModelRef | null, bucket
   return {
     amountMicros: low,
     ...(high === undefined || high === low ? {} : { amountMicrosMax: high }),
+    currency: table.currency,
+    pricedTokens: totalTokens,
+    totalTokens,
+    complete: true,
+  }
+}
+
+/**
+ * Price the four token buckets of one route at one known billing band.
+ *
+ * Use this when the band of the request is known (a step start, or a per-band
+ * rollup); it yields one amount instead of a range.
+ *
+ * @param table - plugin price table.
+ * @param model - route the buckets were billed on, or null when unknown.
+ * @param buckets - the four provider token buckets.
+ * @param band - the band the usage was billed in.
+ * @returns priced cost view, or null when no price applies to the route.
+ */
+export function priceBucketsInBand(
+  table: PricingTable,
+  model: ModelRef | null,
+  buckets: TokenBuckets,
+  band: BillingBand,
+): CostView | null {
+  const card = resolveCard(table, model)
+  if (card === null) return null
+  const rates = band === 'peak' ? card : (card.offPeak ?? card)
+  const totalTokens = sumBuckets(buckets)
+  return {
+    amountMicros: amountMicros(rates, buckets),
     currency: table.currency,
     pricedTokens: totalTokens,
     totalTokens,

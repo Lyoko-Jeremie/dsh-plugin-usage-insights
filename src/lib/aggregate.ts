@@ -1,20 +1,22 @@
 /**
  * Cross-conversation aggregation for the usage history panel.
  *
- * Conversations are attributed to the local calendar day of their last durable
- * activity. Tokens and priced cost are summed over the selected range; a
- * conversation without cached usage still counts as missing coverage.
+ * Two sources, in order of preference:
+ *
+ * - A conversation's `usageBands` rollup names the day and the billing band of
+ *   every request it counted, so tokens and cost are exact.
+ * - Without that projection, the conversation's cumulative counters are priced
+ *   as a peak/off-peak range and attributed to the day of its last activity.
+ *
+ * The view reports which basis it used, so a partially migrated catalog cannot
+ * pass an estimate off as exact.
  */
 import type {
-  CostView,
-  DayTotal,
-  HistoryRange,
-  HistorySessionInput,
-  HistoryView,
-  PricingTable,
-  TokenBuckets,
+  BandModelView, BandDayView, CostBasis, CostView, DayTotal, HistoryRange,
+  HistorySessionInput, HistoryView, PricingTable, TokenBuckets, UsageBandsView,
 } from '../client/contract.ts'
-import { mergeCosts, priceBuckets } from './pricing.ts'
+import { beijingDay } from '../shared/band.js'
+import { mergeCosts, priceBuckets, priceBucketsInBand } from './pricing.ts'
 
 /** Milliseconds in one range day. */
 const DAY_MS = 86_400_000
@@ -23,35 +25,17 @@ const DAY_MS = 86_400_000
 export const RANGE_DAYS = { '7d': 7, '30d': 30 } as const
 
 /**
- * Local calendar day of a timestamp.
+ * Beijing calendar day of a timestamp, matching the Host rollup's day keys.
  *
  * @param time - epoch milliseconds.
- * @returns `YYYY-MM-DD` in the host's local time zone.
+ * @returns `YYYY-MM-DD` in Beijing time.
  */
 export function dayKey(time: number): string {
-  const date = new Date(time)
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
-}
-
-/**
- * Zero-pad a month or day to two digits.
- *
- * @param value - month (1-12) or day (1-31).
- * @returns two-character text.
- */
-function pad2(value: number): string {
-  return value < 10 ? `0${value}` : `${value}`
+  return beijingDay(time)
 }
 
 /**
  * Aggregate the in-range conversations into the history view.
- *
- * The range keeps conversations whose `updatedAt` is at or after the cutoff.
- * Measured conversations are grouped by `dayKey(updatedAt)`: a day appears only
- * when at least one conversation on it carried token usage, so the daily series
- * never shows zero-height days for rows the backfill has not reached yet. Cost
- * covers priced conversations only; one unpriced conversation makes the
- * aggregate incomplete without dropping its tokens from the token totals.
  *
  * @param input - conversations, range, current time and price table.
  * @returns the derived history view.
@@ -63,10 +47,9 @@ export function aggregateHistory(input: {
   pricing: PricingTable
 }): HistoryView {
   const cutoff = input.range === 'all' ? null : input.now - RANGE_DAYS[input.range] * DAY_MS
+  const cutoffDay = cutoff === null ? null : beijingDay(cutoff)
   const inRange =
-    cutoff === null
-      ? input.sessions
-      : input.sessions.filter((session) => session.updatedAt >= cutoff)
+    cutoff === null ? input.sessions : input.sessions.filter(session => session.updatedAt >= cutoff)
   const buckets: TokenBuckets = {
     uncachedInputTokens: 0,
     outputTokens: 0,
@@ -75,12 +58,35 @@ export function aggregateHistory(input: {
   }
   const dayTotals = new Map<string, DayTotal>()
   let measuredCount = 0
+  let fallbackCount = 0
   let cost: CostView | null = null
   let sawUnpriced = false
+  let sawFallback = false
+  let sawBands = false
   for (const session of inRange) {
+    const bands = session.bands
+    if (bands !== undefined) {
+      measuredCount += 1
+      sawBands = true
+      addBands(buckets, bands)
+      for (const day of bands.days) {
+        if (cutoffDay !== null && day.day < cutoffDay) continue
+        addBandDay(dayTotals, day)
+      }
+      const priced = priceBands(input.pricing, bands)
+      if (priced === null) {
+        sawUnpriced = true
+      } else {
+        cost = cost === null ? priced.cost : mergeCosts(cost, priced.cost)
+        sawUnpriced = sawUnpriced || priced.unpriced
+      }
+      continue
+    }
     const usage = session.tokenUsage
     if (usage === undefined) continue
     measuredCount += 1
+    fallbackCount += 1
+    sawFallback = true
     addBuckets(buckets, usage)
     addDay(dayTotals, session.updatedAt, usage)
     const sessionCost = priceBuckets(input.pricing, session.model, usage)
@@ -101,13 +107,125 @@ export function aggregateHistory(input: {
     sessionCount: inRange.length,
     measuredCount,
     missingCount: inRange.length - measuredCount,
+    fallbackCount,
     buckets,
     totalTokens: sumBuckets(buckets),
     cacheRate: billedInputTokens > 0 ? buckets.cacheReadTokens / billedInputTokens : null,
     activeDays: days.length,
     days,
     cost,
+    costBasis: basisOf(cost, sawBands, sawFallback),
   }
+}
+
+/**
+ * Decide how the aggregate's cost was derived.
+ *
+ * @param cost - aggregate cost, or null.
+ * @param sawBands - whether any conversation contributed a band rollup.
+ * @param sawFallback - whether any conversation fell back to cumulative counters.
+ * @returns the basis label.
+ */
+function basisOf(cost: CostView | null, sawBands: boolean, sawFallback: boolean): CostBasis {
+  if (cost === null) return 'none'
+  if (sawBands && !sawFallback) return 'bands'
+  return 'range'
+}
+
+/**
+ * Add a band rollup's lifetime totals into the running buckets.
+ *
+ * @param totals - mutable accumulator.
+ * @param bands - one conversation's rollup.
+ */
+function addBands(totals: TokenBuckets, bands: UsageBandsView): void {
+  for (const entry of bands.total.peak) addModelBuckets(totals, entry)
+  for (const entry of bands.total.offPeak) addModelBuckets(totals, entry)
+}
+
+/**
+ * Add one model entry's buckets.
+ *
+ * @param totals - mutable accumulator.
+ * @param entry - one model's counters.
+ */
+function addModelBuckets(totals: TokenBuckets, entry: BandModelView): void {
+  totals.uncachedInputTokens += entry.uncachedInputTokens
+  totals.cacheReadTokens += entry.cacheReadTokens
+  totals.cacheWriteTokens += entry.cacheWriteTokens
+  totals.outputTokens += entry.outputTokens
+}
+
+/**
+ * Add one rollup day into the day totals.
+ *
+ * @param totals - day totals by key.
+ * @param day - one Beijing day split by band.
+ */
+function addBandDay(totals: Map<string, DayTotal>, day: BandDayView): void {
+  let totalTokens = 0
+  let inputTokens = 0
+  let outputTokens = 0
+  let cacheReadTokens = 0
+  let cacheWriteTokens = 0
+  let sessions = 0
+  for (const entry of [...day.peak, ...day.offPeak]) {
+    inputTokens += entry.uncachedInputTokens
+    outputTokens += entry.outputTokens
+    cacheReadTokens += entry.cacheReadTokens
+    cacheWriteTokens += entry.cacheWriteTokens
+    totalTokens += entry.uncachedInputTokens + entry.cacheReadTokens + entry.cacheWriteTokens + entry.outputTokens
+    sessions += entry.requests
+  }
+  const existing = totals.get(day.day)
+  if (existing === undefined) {
+    totals.set(day.day, {
+      day: day.day, totalTokens, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, sessions,
+    })
+    return
+  }
+  existing.totalTokens += totalTokens
+  existing.inputTokens += inputTokens
+  existing.outputTokens += outputTokens
+  existing.cacheReadTokens += cacheReadTokens
+  existing.cacheWriteTokens += cacheWriteTokens
+  existing.sessions += sessions
+}
+
+/**
+ * Price one conversation's band rollup.
+ *
+ * @param pricing - plugin price table.
+ * @param bands - the conversation's rollup.
+ * @returns merged cost plus whether any entry stayed unpriced, or null when empty.
+ */
+function priceBands(
+  pricing: PricingTable,
+  bands: UsageBandsView,
+): { cost: CostView | null; unpriced: boolean } | null {
+  let cost: CostView | null = null
+  let unpriced = false
+  let seen = false
+  for (const [band, entries] of [['peak', bands.total.peak], ['off-peak', bands.total.offPeak]] as const) {
+    for (const entry of entries) {
+      seen = true
+      const route = entry.provider.length > 0 && entry.model.length > 0
+        ? { provider: entry.provider, model: entry.model }
+        : null
+      const priced = priceBucketsInBand(pricing, route, {
+        uncachedInputTokens: entry.uncachedInputTokens,
+        cacheReadTokens: entry.cacheReadTokens,
+        cacheWriteTokens: entry.cacheWriteTokens,
+        outputTokens: entry.outputTokens,
+      }, band)
+      if (priced === null) {
+        unpriced = true
+        continue
+      }
+      cost = cost === null ? priced : mergeCosts(cost, priced)
+    }
+  }
+  return seen ? { cost, unpriced } : null
 }
 
 /**
@@ -124,7 +242,7 @@ function addBuckets(totals: TokenBuckets, usage: TokenBuckets): void {
 }
 
 /**
- * Add one measured conversation to its local calendar day.
+ * Add one fallback conversation to its activity day.
  *
  * @param totals - day totals by key.
  * @param updatedAt - the conversation's last durable activity.

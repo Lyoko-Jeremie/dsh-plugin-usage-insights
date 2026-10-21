@@ -1,25 +1,21 @@
 /**
- * Derivation of the single-conversation usage panel view.
+ * Derivation of the single-conversation view from Host projections.
  *
- * The Host publishes plain projections; this module turns them into one view
- * object without touching the runtime. Every figure comes from the input, so
- * the same projections always render the same panel.
+ * Pure: every figure is computed from the projection values the slot hands in,
+ * plus the plugin price table. Nothing here reads the runtime, the clock, or
+ * storage.
  */
 import type {
-  BreakdownView,
-  ContextView,
-  ModelRef,
-  PricingTable,
-  SessionUsageView,
-  TokenBuckets,
+  BandModelView, BreakdownView, CostBasis, CostView, ModelRef, PricingTable,
+  SessionUsageView, StepActivityView, StepDetailView, TokenBuckets, UsageBandsView, UsageStepView,
 } from '../client/contract.ts'
-import { priceBuckets } from './pricing.ts'
+import { mergeCosts, priceBuckets, priceBucketsInBand } from './pricing.ts'
 
-/** Host projections one conversation view is derived from. */
+/** Inputs of {@link deriveSessionUsage}: projection values plus the price table. */
 export interface SessionUsageInput {
-  /** Billed token buckets; absent until the first provider usage lands. */
+  /** Cumulative provider usage of the whole durable log. */
   tokenUsage?: TokenBuckets
-  /** Context-window pressure figures, in prompt tokens. */
+  /** Newest request pressure and route capacity. */
   contextPressure?: {
     pressureTokens?: number
     projectedTokens?: number
@@ -27,7 +23,7 @@ export interface SessionUsageInput {
   }
   /** Heuristic composition of the next request. */
   contextBreakdown?: BreakdownView
-  /** Durable session statistics; the source of the request and latency figures. */
+  /** Whole-log turn and wall-time figures. */
   sessionStats?: {
     turns: number
     steps: number
@@ -40,17 +36,22 @@ export interface SessionUsageInput {
   }
   /** Route of the last request and the route the next one will use. */
   modelSelection?: { lastUsed: ModelRef | null; next: ModelRef | null }
-  /** Plugin-owned price table used for the cost estimate. */
+  /** Raw `usageSteps` view, when the Host projection is mounted. */
+  steps?: { steps: readonly UsageStepView[]; totalSteps: number; omittedSteps: number } | null
+  /** Raw `usageBands` view, when the Host projection is mounted. */
+  bands?: UsageBandsView | null
+  /** Plugin-owned price table. */
   pricing: PricingTable
 }
 
 /**
  * Derive the panel view for one conversation.
  *
- * `requests` reuses the session-stats step count: v0.1 has no per-request usage
- * event, and a step is one provider call in practice.
+ * Cost is exact when the Host's per-band rollup is available: every bucket is
+ * priced in the band its request actually ran in. Without that projection the
+ * cumulative counters are priced as a peak/off-peak range instead.
  *
- * @param input - host projections plus the price table.
+ * @param input - Host projections plus the price table.
  * @returns the derived single-conversation view.
  */
 export function deriveSessionUsage(input: SessionUsageInput): SessionUsageView {
@@ -60,12 +61,14 @@ export function deriveSessionUsage(input: SessionUsageInput): SessionUsageView {
     buckets.uncachedInputTokens + buckets.cacheReadTokens + buckets.cacheWriteTokens
   const stats = input.sessionStats
   const model = input.modelSelection?.next ?? input.modelSelection?.lastUsed ?? null
+  const steps = deriveSteps(input.steps, model, input.pricing)
+  const priced = deriveCost(input, model, buckets)
   return {
     buckets,
     totalTokens,
     billedInputTokens,
     cacheRate: billedInputTokens > 0 ? buckets.cacheReadTokens / billedInputTokens : null,
-    requests: stats?.steps ?? 0,
+    requests: input.steps?.totalSteps ?? stats?.steps ?? 0,
     turns: stats?.turns ?? 0,
     steps: stats?.steps ?? 0,
     llmMs: stats?.llmMs ?? 0,
@@ -76,8 +79,135 @@ export function deriveSessionUsage(input: SessionUsageInput): SessionUsageView {
     context: deriveContext(input.contextPressure),
     breakdown: input.contextBreakdown ?? null,
     model,
-    cost: priceBuckets(input.pricing, model, buckets),
+    cost: priced.cost,
+    costBasis: priced.basis,
+    stepActivity: steps,
     hasUsage: totalTokens > 0,
+  }
+}
+
+/**
+ * Price the session.
+ *
+ * @param input - projection values and price table.
+ * @param model - route used when only the cumulative counters exist.
+ * @param buckets - cumulative buckets.
+ * @returns the cost view and how it was derived.
+ */
+function deriveCost(
+  input: SessionUsageInput,
+  model: ModelRef | null,
+  buckets: TokenBuckets,
+): { cost: CostView | null; basis: CostBasis } {
+  const bands = input.bands
+  if (bands !== null && bands !== undefined) {
+    const peak = priceBand(bands.total.peak, 'peak', input.pricing, model)
+    const offPeak = priceBand(bands.total.offPeak, 'off-peak', input.pricing, model)
+    if (peak !== null || offPeak !== null) {
+      // An empty band is not an unpriced band: merge only the bands that
+      // actually carry requests, or the empty side would mark the result
+      // incomplete.
+      const peakCost = peak?.cost ?? null
+      const offPeakCost = offPeak?.cost ?? null
+      const merged = peakCost === null
+        ? offPeakCost
+        : offPeakCost === null ? peakCost : mergeCosts(peakCost, offPeakCost)
+      if (merged !== null) {
+        const complete = merged.complete && (peak?.unpriced !== true) && (offPeak?.unpriced !== true)
+        return { cost: complete === merged.complete ? merged : { ...merged, complete }, basis: 'bands' }
+      }
+    }
+  }
+  return { cost: priceBuckets(input.pricing, model, buckets), basis: 'range' }
+}
+
+/**
+ * Price one band's per-model entries.
+ *
+ * Requests whose log entry named no route (a failed attempt before the first
+ * message) are priced at the session's current route, which is the only route
+ * evidence available; they stay unpriced only when that route is unpriced too.
+ *
+ * @param entries - one band's model buckets.
+ * @param band - billing band.
+ * @param pricing - plugin price table.
+ * @param fallback - route for entries the log could not attribute.
+ * @returns merged cost plus whether any entry stayed unpriced, or null when empty.
+ */
+function priceBand(
+  entries: readonly BandModelView[],
+  band: 'peak' | 'off-peak',
+  pricing: PricingTable,
+  fallback: ModelRef | null,
+): { cost: CostView | null; unpriced: boolean } | null {
+  if (entries.length === 0) return null
+  let cost: CostView | null = null
+  let unpriced = false
+  for (const entry of entries) {
+    const route = entry.provider.length > 0 && entry.model.length > 0
+      ? { provider: entry.provider, model: entry.model }
+      : fallback
+    const priced = priceBucketsInBand(pricing, route, {
+      uncachedInputTokens: entry.uncachedInputTokens,
+      cacheReadTokens: entry.cacheReadTokens,
+      cacheWriteTokens: entry.cacheWriteTokens,
+      outputTokens: entry.outputTokens,
+    }, band)
+    if (priced === null) {
+      unpriced = true
+      continue
+    }
+    cost = cost === null ? priced : mergeCosts(cost, priced)
+  }
+  return { cost, unpriced }
+}
+
+/**
+ * Turn the Host's step list into table rows with their own price.
+ *
+ * @param raw - the `usageSteps` view, or undefined when the projection is absent.
+ * @param fallback - route for steps whose log entry named none.
+ * @param pricing - plugin price table.
+ * @returns step rows, or null without the projection.
+ */
+function deriveSteps(
+  raw: SessionUsageInput['steps'],
+  fallback: ModelRef | null,
+  pricing: PricingTable,
+): StepActivityView | null {
+  if (raw === null || raw === undefined) return null
+  const steps: StepDetailView[] = raw.steps.map(step => ({
+    ...step,
+    cost: priceBucketsInBand(pricing, routeOf(step) ?? fallback, bucketsOf(step), step.band),
+  }))
+
+  return { steps, totalSteps: raw.totalSteps, omittedSteps: raw.omittedSteps }
+}
+
+/**
+ * Route of one step.
+ *
+ * @param step - one step.
+ * @returns the route, or null when the log did not name one.
+ */
+function routeOf(step: UsageStepView): ModelRef | null {
+  return step.provider.length > 0 && step.model.length > 0
+    ? { provider: step.provider, model: step.model }
+    : null
+}
+
+/**
+ * Token buckets of one step.
+ *
+ * @param step - one step.
+ * @returns its four buckets.
+ */
+function bucketsOf(step: UsageStepView): TokenBuckets {
+  return {
+    uncachedInputTokens: step.uncachedInputTokens,
+    cacheReadTokens: step.cacheReadTokens,
+    cacheWriteTokens: step.cacheWriteTokens,
+    outputTokens: step.outputTokens,
   }
 }
 
@@ -114,7 +244,7 @@ function sumBuckets(buckets: TokenBuckets): number {
  * @param pressure - context-pressure projection, or undefined.
  * @returns occupancy view; every figure is null without a projection.
  */
-function deriveContext(pressure: SessionUsageInput['contextPressure']): ContextView {
+function deriveContext(pressure: SessionUsageInput['contextPressure']): SessionUsageView['context'] {
   const usedTokens = pressure?.projectedTokens ?? pressure?.pressureTokens ?? null
   const windowTokens = pressure?.contextWindow ?? null
   const source =

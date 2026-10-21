@@ -7,8 +7,8 @@
  * values, so light and dark themes stay readable.
  */
 import type { JSX, ReactNode } from 'react'
-import type { DayTotal, Translate } from './contract'
-import { formatTokens } from '../lib/format'
+import type { DayTotal, StepDetailView, Translate } from './contract'
+import { formatBeijingTime, formatMoneyRange, formatTokens } from '../lib/format'
 import { css } from './styles'
 
 /** Clamp a 0–1 ratio and render it as a percentage width. */
@@ -165,6 +165,58 @@ export function DailyBars(props: { days: readonly DayTotal[]; t: Translate }): J
           <span>{last.day}</span>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * One row per billed request, newest first.
+ *
+ * Times are Beijing time because the price table's peak/off-peak windows are
+ * defined in that zone; a local-time column would make the band column
+ * unverifiable.
+ *
+ * @param props - request rows and the translate seat.
+ * @returns the rendered table.
+ */
+export function StepTable(props: { steps: readonly StepDetailView[]; t: Translate }): JSX.Element {
+  const rows = [...props.steps].reverse()
+  return (
+    <div className="dsu-steps-wrap">
+      <table className="dsu-steps">
+        <thead>
+          <tr>
+            <th>{props.t('steps.time')}</th>
+            <th>{props.t('steps.band')}</th>
+            <th>{props.t('steps.index')}</th>
+            <th>{props.t('steps.model')}</th>
+            <th className="dsu-num">{props.t('steps.input')}</th>
+            <th className="dsu-num">{props.t('steps.cacheRead')}</th>
+            <th className="dsu-num">{props.t('steps.output')}</th>
+            <th className="dsu-num">{props.t('steps.cost')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(step => (
+            <tr key={`${String(step.turn)}-${String(step.step)}-${String(step.at)}`}>
+              <td className="dsu-step-time">{formatBeijingTime(step.at)}</td>
+              <td>
+                <span className="dsu-band" data-band={step.band}>
+                  {props.t(step.band === 'peak' ? 'steps.peak' : 'steps.offPeak')}
+                </span>
+              </td>
+              <td className="dsu-num">{step.turn}.{step.step}</td>
+              <td className="dsu-step-model">{step.model === '' ? '—' : step.model}</td>
+              <td className="dsu-num">{formatTokens(step.uncachedInputTokens)}</td>
+              <td className="dsu-num">{formatTokens(step.cacheReadTokens)}</td>
+              <td className="dsu-num">{formatTokens(step.outputTokens)}</td>
+              <td className="dsu-num">
+                {step.cost === null ? '—' : formatMoneyRange(step.cost.amountMicros, undefined, step.cost.currency)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

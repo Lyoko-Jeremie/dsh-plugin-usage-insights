@@ -15,7 +15,7 @@ import { HistoryPanel } from './HistoryPanel.tsx'
 import { SessionPanel } from './SessionPanel.tsx'
 import type { SessionScopedProps, SessionSummaryLike } from './runtime.ts'
 import {
-  readBreakdown, readContextPressure, readModelSelection, readSessionStats, readTokenUsage,
+  readBands, readBreakdown, readContextPressure, readModelSelection, readSessionStats, readSteps, readTokenUsage,
 } from './readers.ts'
 
 /** How many projection reads the backfill keeps in flight. */
@@ -37,6 +37,8 @@ export function UsagePanelBody(props: SessionScopedProps) {
   const contextBreakdown = props.useProjection('contextBreakdown')
   const sessionStats = props.useProjection('sessionStats')
   const modelSelection = props.useProjection('modelSelection')
+  const usageSteps = props.useProjection('usageSteps')
+  const usageBands = props.useProjection('usageBands')
   const running = props.useSession(snapshot => snapshot.running)
 
   // Projections are push-only: a page that opened this Session before the Host
@@ -45,17 +47,21 @@ export function UsagePanelBody(props: SessionScopedProps) {
   // waiting for the conversation to move.
   const hydrateRequested = useRef(false)
   const readProjections = props.readProjections
+  // Any projection this panel reads may be missing: the Session opened before
+  // the Host registered the unit, or the page resumed from an older baseline.
+  // Ask once for the whole set instead of waiting for the next frame.
+  const missing = tokenUsage === undefined || usageSteps === undefined || usageBands === undefined
   useEffect(() => {
-    if (readProjections === undefined || tokenUsage !== undefined) return
+    if (readProjections === undefined || !missing) return
     if (hydrateRequested.current) return
     hydrateRequested.current = true
     void readProjections(props.sessionId).catch(() => {
-      // A failed read leaves the panel in its empty state; the next Host frame
-      // or a manual reopen retries, and a slot must not surface an unhandled
-      // rejection.
+      // A failed read leaves the panel in its degraded state; the next Host
+      // frame or a manual reopen retries, and a slot must not surface an
+      // unhandled rejection.
       hydrateRequested.current = false
     })
-  }, [readProjections, props.sessionId, tokenUsage])
+  }, [readProjections, props.sessionId, missing])
 
   const view = useMemo(() => deriveSessionUsage({
     tokenUsage: readTokenUsage(tokenUsage),
@@ -63,8 +69,10 @@ export function UsagePanelBody(props: SessionScopedProps) {
     contextBreakdown: readBreakdown(contextBreakdown),
     sessionStats: readSessionStats(sessionStats),
     modelSelection: readModelSelection(modelSelection),
+    steps: readSteps(usageSteps),
+    bands: readBands(usageBands),
     pricing: PRICING,
-  }), [tokenUsage, contextPressure, contextBreakdown, sessionStats, modelSelection])
+  }), [tokenUsage, contextPressure, contextBreakdown, sessionStats, modelSelection, usageSteps, usageBands])
 
   return <SessionPanel view={view} t={props.t} running={running === true} />
 }
@@ -96,10 +104,12 @@ export function UsageHistoryPanelBody(props: SessionScopedProps) {
   const onBackfill = useCallback(() => {
     const readProjections = props.readProjections
     if (readProjections === undefined || backfill === 'loading') return
-    const pending = view.missingCount === 0
+    // A row without a band rollup needs a projection read even when its
+    // cumulative counters are cached: only the rollup makes cost exact.
+    const pending = view.missingCount + view.fallbackCount === 0
       ? []
       : rows
-        .filter(row => row.tokenUsage === undefined && !requested.current.has(row.id))
+        .filter(row => row.bands === undefined && !requested.current.has(row.id))
         .map(row => row.id)
     if (pending.length === 0) return
     for (const id of pending) requested.current.add(id)
@@ -128,17 +138,18 @@ export function UsageHistoryPanelBody(props: SessionScopedProps) {
         setBackfill('idle')
       }
     })()
-  }, [backfill, props.readProjections, rows, view.missingCount])
+  }, [backfill, props.readProjections, rows, view.missingCount, view.fallbackCount])
 
   // A freshly opened tab would otherwise never load its uncached rows. Keyed by
-  // the missing count alone: re-running on every view rebuild would restart a
+  // the stale count alone: re-running on every view rebuild would restart a
   // batch that is already in flight. Large histories stay manual so opening the
   // tab cannot kick off hundreds of Host log folds.
+  const staleCount = view.missingCount + view.fallbackCount
   useEffect(() => {
-    if (view.missingCount === 0 || view.missingCount > AUTO_BACKFILL_LIMIT) return
+    if (staleCount === 0 || staleCount > AUTO_BACKFILL_LIMIT) return
     if (props.readProjections === undefined) return
     onBackfill()
-  }, [view.missingCount])
+  }, [staleCount])
 
   return (
     <HistoryPanel
@@ -167,10 +178,12 @@ function historyRows(
     const summary = byId[id]
     if (summary === undefined) continue
     const tokenUsage = readTokenUsage(summary.projectionValues?.tokenUsage)
+    const bands = readBands(summary.projectionValues?.usageBands)
     rows.push({
       id,
       updatedAt: summary.updatedAt,
       ...(tokenUsage === undefined ? {} : { tokenUsage }),
+      ...(bands === undefined ? {} : { bands }),
       model: readModelSelection(summary.projectionValues?.modelSelection)?.next ?? null,
     })
   }

@@ -139,3 +139,19 @@ export function formatMoneyRange(micros: number, microsMax: number | undefined, 
   if (microsMax === undefined || microsMax === micros) return low
   return `${low} – ${formatMoney(microsMax, currency)}`
 }
+
+/**
+ * Format one request start in Beijing time, the billing table's time zone.
+ *
+ * @param atMs - Unix epoch milliseconds.
+ * @returns `"MM-DD HH:mm"` in Beijing time.
+ */
+export function formatBeijingTime(atMs: number): string {
+  const date = new Date(atMs + 8 * 60 * 60 * 1000)
+  const month = date.getUTCMonth() + 1
+  const day = date.getUTCDate()
+  const hours = date.getUTCHours()
+  const minutes = date.getUTCMinutes()
+  const pad = (value: number): string => (value < 10 ? `0${value}` : `${value}`)
+  return `${pad(month)}-${pad(day)} ${pad(hours)}:${pad(minutes)}`
+}

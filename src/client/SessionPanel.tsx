@@ -6,7 +6,7 @@
  * composition, and the session metrics the session-stats projection reports.
  */
 import type { JSX } from 'react'
-import type { CostView, SessionPanelProps, Translate } from './contract'
+import type { CostBasis, CostView, SessionPanelProps, Translate } from './contract'
 import {
   formatCount,
   formatDuration,
@@ -15,7 +15,7 @@ import {
   formatTokens,
   formatTokensPerSecond,
 } from '../lib/format'
-import { InlineMessage, MeterBar, Ring, Row, Section, Stat, StyleTag } from './components'
+import { InlineMessage, MeterBar, Ring, Row, Section, Stat, StepTable, StyleTag } from './components'
 
 /**
  * Estimated cost line of the header.
@@ -23,7 +23,7 @@ import { InlineMessage, MeterBar, Ring, Row, Section, Stat, StyleTag } from './c
  * @param props - the priced view, or null when no route could be priced.
  * @returns the rendered cost line.
  */
-function CostLine(props: { cost: CostView | null; t: Translate }): JSX.Element {
+function CostLine(props: { cost: CostView | null; basis: CostBasis; t: Translate }): JSX.Element {
   if (props.cost === null) {
     return (
       <div className="dsu-cost">
@@ -38,6 +38,7 @@ function CostLine(props: { cost: CostView | null; t: Translate }): JSX.Element {
         {formatMoneyRange(props.cost.amountMicros, props.cost.amountMicrosMax, props.cost.currency)}
       </span>
       <span className="dsu-cost-note">{props.t('cost.estimated')}</span>
+      {props.basis === 'bands' && <span className="dsu-cost-note">{props.t('cost.bands')}</span>}
       {props.cost.amountMicrosMax !== undefined && (
         <span className="dsu-cost-note">{props.t('cost.range')}</span>
       )}
@@ -70,7 +71,7 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
             <>
               <div className="dsu-head-value">{formatTokens(view.totalTokens)}</div>
               <div className="dsu-head-caption">{t('label.tokens')}</div>
-              <CostLine cost={view.cost} t={t} />
+              <CostLine cost={view.cost} basis={view.costBasis} t={t} />
             </>
           )}
           {running && (
@@ -111,9 +112,11 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
                 : formatMoneyRange(view.cost.amountMicros, view.cost.amountMicrosMax, view.cost.currency)}
               hint={view.cost === null
                 ? undefined
-                : view.cost.amountMicrosMax !== undefined
-                  ? t('cost.range')
-                  : view.cost.complete ? t('label.cost.hint') : t('cost.partial')}
+                : view.costBasis === 'bands'
+                  ? t('cost.bands')
+                  : view.cost.amountMicrosMax !== undefined
+                    ? t('cost.range')
+                    : view.cost.complete ? t('label.cost.hint') : t('cost.partial')}
             />
           </div>
           <div className="dsu-rows">
@@ -183,6 +186,19 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
               value={view.decodeTps === null ? '—' : formatTokensPerSecond(view.decodeTps)}
             />
           </div>
+        </Section>
+      )}
+      {view.stepActivity !== null && view.stepActivity.steps.length > 0 && (
+        <Section
+          title={t('section.steps')}
+          aside={view.stepActivity.omittedSteps > 0
+            ? t('steps.omitted', {
+              shown: view.stepActivity.steps.length,
+              total: view.stepActivity.totalSteps,
+            })
+            : undefined}
+        >
+          <StepTable steps={view.stepActivity.steps} t={t} />
         </Section>
       )}
     </div>

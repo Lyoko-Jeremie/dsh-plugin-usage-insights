@@ -54,8 +54,19 @@ function propsFor(projections, list) {
   }
 }
 
+const stepRow = {
+  at: Date.UTC(2026, 9, 21, 2, 0), turn: 1, step: 0, provider: 'deepseek', model: 'deepseek-flash',
+  band: 'peak', uncachedInputTokens: 1_000_000, cacheReadTokens: 0, cacheWriteTokens: 0,
+  outputTokens: 0, reasoningTokens: 0,
+}
+
 const populated = {
   tokenUsage: { uncachedInputTokens: 48210, outputTokens: 9077, cacheReadTokens: 96000, cacheWriteTokens: 1200 },
+  usageSteps: { steps: [stepRow], totalSteps: 3, omittedSteps: 2 },
+  usageBands: {
+    days: [{ day: '2026-10-21', peak: [{ ...stepRow, requests: 1 }], offPeak: [] }],
+    total: { peak: [{ ...stepRow, requests: 1 }], offPeak: [] },
+  },
   contextPressure: { pressureTokens: 43000, projectedTokens: 43600, contextWindow: 128000 },
   contextBreakdown: { systemTokens: 6200, toolsTokens: 12800, messageTokens: 24600 },
   sessionStats: {
@@ -71,16 +82,20 @@ const populated = {
 const list = {
   ids: ['s1', 's2', 's3'],
   byId: {
-    s1: { id: 's1', updatedAt: Date.now() - 2 * 86_400_000, projectionValues: { tokenUsage: populated.tokenUsage } },
+    s1: {
+      id: 's1', updatedAt: Date.now() - 2 * 86_400_000,
+      projectionValues: { tokenUsage: populated.tokenUsage, usageBands: populated.usageBands },
+    },
     s2: { id: 's2', updatedAt: Date.now() - 86_400_000, projectionValues: { tokenUsage: { uncachedInputTokens: 1000, outputTokens: 500, cacheReadTokens: 4000, cacheWriteTokens: 0 } } },
     s3: { id: 's3', updatedAt: Date.now(), projectionValues: {} },
   },
 }
 
 const cases = [
-  ['session: populated', session, propsFor(populated, list), ['154k', '34%', '66%', '48k']],
+  ['session: populated', session, propsFor(populated, list),
+    ['154k', '34%', '66%', '48k', '[section.steps]', '1M', '[steps.peak]']],
   ['session: empty', session, propsFor({}, list), ['[empty.noUsage]']],
-  ['history: populated', history, propsFor({}, list), ['160k', '[history.range.7d]']],
+  ['history: populated', history, propsFor({}, list), ['1M', '[history.range.7d]']],
   ['history: empty', history, propsFor({}, { ids: [], byId: {} }), ['[history.empty]']],
 ]
 
