@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Usage Insights">
+  <defs>
+    <linearGradient id="ui-bar" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5b8cff"/>
+      <stop offset="1" stop-color="#8f6bff"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="none" stroke="url(#ui-bar)" stroke-width="2.5" opacity="0.55"/>
+  <rect x="15" y="34" width="7" height="15" rx="2.5" fill="url(#ui-bar)"/>
+  <rect x="28.5" y="25" width="7" height="24" rx="2.5" fill="url(#ui-bar)"/>
+  <rect x="42" y="15" width="7" height="34" rx="2.5" fill="url(#ui-bar)"/>
+  <path d="M15 28 L28.5 20 L42 10" fill="none" stroke="url(#ui-bar)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+</svg>

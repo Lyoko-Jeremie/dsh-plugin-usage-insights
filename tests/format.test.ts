@@ -1,0 +1,139 @@
+import { describe, expect, it } from 'vitest'
+import {
+  formatCount,
+  formatDuration,
+  formatMoney,
+  formatPercent,
+  formatTokens,
+  formatTokensPerSecond,
+} from '../src/lib/format.ts'
+
+describe('formatTokens', () => {
+  it('keeps counts below one thousand verbatim', () => {
+    expect(formatTokens(0)).toBe('0')
+    expect(formatTokens(7)).toBe('7')
+    expect(formatTokens(999)).toBe('999')
+  })
+
+  it('scales counts between one thousand and one million with a k suffix', () => {
+    expect(formatTokens(1_000)).toBe('1k')
+    expect(formatTokens(1_234)).toBe('1.2k')
+    expect(formatTokens(9_949)).toBe('9.9k')
+    expect(formatTokens(9_960)).toBe('10k')
+    expect(formatTokens(12_345)).toBe('12k')
+    expect(formatTokens(123_456)).toBe('123k')
+  })
+
+  it('promotes a rounding k value to the next unit', () => {
+    expect(formatTokens(999_999)).toBe('1M')
+    expect(formatTokens(1_000_000)).toBe('1M')
+  })
+
+  it('uses M and B suffixes above their thresholds', () => {
+    expect(formatTokens(1_234_567)).toBe('1.2M')
+    expect(formatTokens(12_345_678)).toBe('12M')
+    expect(formatTokens(1_500_000_000)).toBe('1.5B')
+  })
+
+  it('keeps the sign of a negative value', () => {
+    expect(formatTokens(-1_234)).toBe('-1.2k')
+  })
+})
+
+describe('formatCount', () => {
+  it('groups digits with thousands separators', () => {
+    expect(formatCount(0)).toBe('0')
+    expect(formatCount(999)).toBe('999')
+    expect(formatCount(1_234)).toBe('1,234')
+    expect(formatCount(1_234_567)).toBe('1,234,567')
+  })
+})
+
+describe('formatPercent', () => {
+  it('rounds ordinary ratios to whole percent', () => {
+    expect(formatPercent(0)).toBe('0%')
+    expect(formatPercent(0.5)).toBe('50%')
+    expect(formatPercent(0.784)).toBe('78%')
+    expect(formatPercent(0.999)).toBe('99.9%')
+  })
+
+  it('keeps one decimal just below a full bar', () => {
+    expect(formatPercent(0.996)).toBe('99.6%')
+    expect(formatPercent(0.9951)).toBe('99.5%')
+  })
+
+  it('clamps ratios outside the unit interval', () => {
+    expect(formatPercent(1)).toBe('100%')
+    expect(formatPercent(1.4)).toBe('100%')
+    expect(formatPercent(-0.2)).toBe('0%')
+  })
+})
+
+describe('formatDuration', () => {
+  it('shows sub-second durations as one decimal of a second', () => {
+    expect(formatDuration(0)).toBe('0.0s')
+    expect(formatDuration(400)).toBe('0.4s')
+    expect(formatDuration(999)).toBe('1.0s')
+  })
+
+  it('shows durations below a minute with one decimal', () => {
+    expect(formatDuration(45_200)).toBe('45.2s')
+    expect(formatDuration(59_000)).toBe('59.0s')
+  })
+
+  it('switches to minutes and seconds at one minute', () => {
+    expect(formatDuration(60_000)).toBe('1m0s')
+    expect(formatDuration(162_000)).toBe('2m42s')
+  })
+
+  it('switches to hours at one hour', () => {
+    expect(formatDuration(3_600_000)).toBe('1h0m')
+    expect(formatDuration(3_720_000)).toBe('1h2m')
+  })
+
+  it('clamps negative input to zero', () => {
+    expect(formatDuration(-50)).toBe('0.0s')
+  })
+})
+
+describe('formatTokensPerSecond', () => {
+  it('shows one decimal below one hundred tokens per second', () => {
+    expect(formatTokensPerSecond(42.3)).toBe('42.3 tok/s')
+    expect(formatTokensPerSecond(9.5)).toBe('9.5 tok/s')
+    expect(formatTokensPerSecond(99)).toBe('99 tok/s')
+    expect(formatTokensPerSecond(0)).toBe('0 tok/s')
+  })
+
+  it('rounds three-digit speeds to whole tokens per second', () => {
+    expect(formatTokensPerSecond(100)).toBe('100 tok/s')
+    expect(formatTokensPerSecond(123.4)).toBe('123 tok/s')
+  })
+
+  it('clamps negative input to zero', () => {
+    expect(formatTokensPerSecond(-5)).toBe('0 tok/s')
+  })
+})
+
+describe('formatMoney', () => {
+  it('formats a zero amount instead of leaving it blank', () => {
+    expect(formatMoney(0, 'USD')).toBe('$0.00')
+  })
+
+  it('formats whole currency units with cents', () => {
+    expect(formatMoney(1_000_000, 'USD')).toBe('$1.00')
+    expect(formatMoney(2_500_000, 'USD')).toBe('$2.50')
+    expect(formatMoney(1_234_567, 'USD')).toBe('$1.23')
+    expect(formatMoney(1_234_567_890, 'USD')).toBe('$1,234.57')
+  })
+
+  it('keeps sub-cent amounts non-zero', () => {
+    expect(formatMoney(12_345, 'USD')).toBe('$0.0123')
+    expect(formatMoney(2_800, 'USD')).toBe('$0.0028')
+    expect(formatMoney(123, 'USD')).toBe('$0.000123')
+  })
+
+  it('uses the currency symbol of the given code', () => {
+    expect(formatMoney(1_000_000, 'EUR')).toBe('€1.00')
+    expect(formatMoney(1_000_000, 'CNY')).toBe('¥1.00')
+  })
+})
