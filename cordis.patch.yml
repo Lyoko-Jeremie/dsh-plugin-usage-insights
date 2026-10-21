@@ -5,4 +5,11 @@
         stepHistory: 200
         stepWindow: 20
         bandDays: 90
+        useBuiltinHolidays: true
         holidays: []
+        holidayRanges: []
+        holidaySync:
+          enabled: false
+          urlTemplate: 'https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/{year}.json'
+          years: []
+          timeoutMs: 4000

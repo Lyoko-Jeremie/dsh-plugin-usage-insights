@@ -90,8 +90,66 @@ Tune the limits in the bundle patch:
         stepHistory: 200
         stepWindow: 20
         bandDays: 90
-        holidays: []
+        useBuiltinHolidays: true
+        holidays: []            # extra YYYY-MM-DD days
+        holidayRanges: []       # extra YYYY-MM-DD..YYYY-MM-DD spans
+        holidaySync:
+          enabled: false
+          urlTemplate: 'https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/{year}.json'
+          years: []             # empty: current and next Beijing year
+          timeoutMs: 4000
 ```
+
+## Statutory holidays
+
+DeepSeek bills peak hours on Beijing weekdays **excluding statutory holidays**.
+The plugin ships a calendar for 2025-2026 (from the State Council
+announcements, extracted through
+[`holiday-cn`](https://github.com/NateScarlet/holiday-cn)), and you can extend
+it two ways:
+
+```yaml
+config:
+  useBuiltinHolidays: true      # false = start from an empty calendar
+  holidays: ['2027-01-01']      # single days
+  holidayRanges: ['2027-02-06..2027-02-12']
+```
+
+**Why weekends never need configuration:** the official rule is
+"Monday-Friday excluding statutory holidays", so a Saturday that the State
+Council turns into a swap workday is still billed off-peak. Only `isOffDay`
+days in the announcement matter, and they matter only when they fall on a
+weekday.
+
+### Automatic refresh (optional)
+
+```yaml
+config:
+  holidaySync:
+    enabled: true
+    urlTemplate: 'https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/{year}.json'
+    years: []           # empty: the current and next Beijing year
+    timeoutMs: 4000
+```
+
+At startup the Host fetches the year documents, keeps `isOffDay: true` days,
+and unions them with the built-in and configured calendar. A failed or slow
+fetch never blocks the panel: it logs one warning and falls back to the
+built-in calendar, because a partial calendar would silently move requests into
+the wrong band. The dataset is maintained by a third party (daily scrape of
+gov.cn) and is fetched from a CDN; enable this only if you want the newest year
+without upgrading the plugin.
+
+### Can the current band be fetched from DeepSeek?
+
+No. As of 2026-10-21 the official documentation
+([Models & Pricing](https://api-docs.deepseek.com/zh-cn/quick_start/pricing))
+defines the windows as prose only; the API exposes no pricing-band endpoint, and
+the account API reports balance, not the active tariff. Community tooling such
+as [`dsh-deepseek-price`](https://github.com/oxgbl/dsh-deepseek-price) also
+computes the band locally from the Beijing-time rule. The plugin therefore
+derives every request's band from its own start timestamp plus the holiday
+calendar — no network call is needed at billing time.
 
 ## Pricing (optional)
 
