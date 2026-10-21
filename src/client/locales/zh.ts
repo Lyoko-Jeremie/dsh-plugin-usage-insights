@@ -57,7 +57,7 @@ export const zh = {
   'context.breakdown.system': '系统提示',
   'context.breakdown.tools': '工具定义',
   'context.breakdown.messages': '消息',
-  'context.breakdown.hint': '启发式近似构成，不是计费值',
+  'context.breakdown.hint': '启发式近似构成',
   'context.capacityUnknown': '该模型未声明上下文容量',
   'context.notReported': '还没有请求报告用量',
 

@@ -55,7 +55,7 @@ export const en = {
   'context.breakdown.system': 'System',
   'context.breakdown.tools': 'Tools',
   'context.breakdown.messages': 'Messages',
-  'context.breakdown.hint': 'Approximate composition, not billed tokens',
+  'context.breakdown.hint': 'Approximate composition',
   'context.capacityUnknown': 'This model declares no context capacity',
   'context.notReported': 'No request has reported usage yet',
 
