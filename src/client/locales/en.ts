@@ -69,6 +69,7 @@ export const en = {
   'state.loading': 'Reading…',
   'state.unavailable': 'Waiting for session data',
   'action.refresh': 'Refresh',
+  'action.openUsage': 'Open usage',
 } satisfies Record<string, string>
 
 /** Key union derived from the English dictionary. */

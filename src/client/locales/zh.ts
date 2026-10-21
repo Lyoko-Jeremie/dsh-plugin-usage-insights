@@ -71,4 +71,5 @@ export const zh = {
   'state.loading': '正在读取…',
   'state.unavailable': '正在等待会话数据',
   'action.refresh': '刷新',
+  'action.openUsage': '查看用量',
 } satisfies Record<UsageInsightKey, string>

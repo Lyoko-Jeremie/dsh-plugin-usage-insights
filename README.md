@@ -38,8 +38,19 @@ dsh plugin install github:<you>/dsh-usage-insights
 ```
 
 You can also ask the Harness agent to install the bundle directory with the
-plugin manager. After installing, open the right Sidebar (`+` in its tab strip)
-and pick **Usage** or **Usage history** from the guide page.
+plugin manager. Reload the page once after installing or upgrading so the
+browser loads the new module generation.
+
+Open the panels in either of two ways:
+
+- **Composer button** — the small bar-chart icon to the left of the model
+  selector in the message composer opens the right Sidebar directly on the
+  usage page for the current conversation.
+- **Right Sidebar** — expand the column, then use `+` in its tab strip and pick
+  **Usage** or **Usage history** from the guide page.
+
+The right Sidebar starts collapsed, and a composition may replace the
+conversation session header, so the composer button is the reliable entry.
 
 To upgrade a local checkout after rebuilding, reinstall the bundle and restart
 the app; the browser module generation is only reloaded on restart.
@@ -101,6 +112,9 @@ prompt sizes. Treat them as reference figures, never as billing records.
 - **Cold rows without a projection checkpoint stay missing** until the
   automatic backfill (or the *Load missing* button) reads their projections
   from the Host.
+- **The usage page opens empty on a new conversation.** That is the empty
+  state, not a failure: a conversation with no billed request has no usage to
+  report.
 
 ## Development
 

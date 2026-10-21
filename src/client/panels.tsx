@@ -39,6 +39,24 @@ export function UsagePanelBody(props: SessionScopedProps) {
   const modelSelection = props.useProjection('modelSelection')
   const running = props.useSession(snapshot => snapshot.running)
 
+  // Projections are push-only: a page that opened this Session before the Host
+  // published a value (or a resumed page whose baseline predates the key) reads
+  // undefined until the next frame. Ask once for the whole set instead of
+  // waiting for the conversation to move.
+  const hydrateRequested = useRef(false)
+  const readProjections = props.readProjections
+  useEffect(() => {
+    if (readProjections === undefined || tokenUsage !== undefined) return
+    if (hydrateRequested.current) return
+    hydrateRequested.current = true
+    void readProjections(props.sessionId).catch(() => {
+      // A failed read leaves the panel in its empty state; the next Host frame
+      // or a manual reopen retries, and a slot must not surface an unhandled
+      // rejection.
+      hydrateRequested.current = false
+    })
+  }, [readProjections, props.sessionId, tokenUsage])
+
   const view = useMemo(() => deriveSessionUsage({
     tokenUsage: readTokenUsage(tokenUsage),
     contextPressure: readContextPressure(contextPressure),
@@ -76,8 +94,8 @@ export function UsageHistoryPanelBody(props: SessionScopedProps) {
   )
 
   const onBackfill = useCallback(() => {
-    const measure = props.measure
-    if (measure === undefined || backfill === 'loading') return
+    const readProjections = props.readProjections
+    if (readProjections === undefined || backfill === 'loading') return
     const pending = view.missingCount === 0
       ? []
       : rows
@@ -95,7 +113,7 @@ export function UsageHistoryPanelBody(props: SessionScopedProps) {
             cursor += 1
             if (id === undefined) continue
             try {
-              await measure(id)
+              await readProjections(id)
             } catch {
               // One unreadable conversation must not stop the batch; its row
               // stays in the missing count and the user can retry.
@@ -110,7 +128,7 @@ export function UsageHistoryPanelBody(props: SessionScopedProps) {
         setBackfill('idle')
       }
     })()
-  }, [backfill, props.measure, rows, view.missingCount])
+  }, [backfill, props.readProjections, rows, view.missingCount])
 
   // A freshly opened tab would otherwise never load its uncached rows. Keyed by
   // the missing count alone: re-running on every view rebuild would restart a
@@ -118,7 +136,7 @@ export function UsageHistoryPanelBody(props: SessionScopedProps) {
   // tab cannot kick off hundreds of Host log folds.
   useEffect(() => {
     if (view.missingCount === 0 || view.missingCount > AUTO_BACKFILL_LIMIT) return
-    if (props.measure === undefined) return
+    if (props.readProjections === undefined) return
     onBackfill()
   }, [view.missingCount])
 

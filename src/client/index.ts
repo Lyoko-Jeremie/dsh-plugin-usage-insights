@@ -2,17 +2,19 @@
  * Browser half of the usage-insights bundle.
  *
  * Registers two right-Sidebar page types — one for the open conversation, one
- * for cross-conversation totals — plus their bodies and the copy dictionaries.
- * Nothing here mutates any Harness state: every figure is derived from
- * projections the Host already publishes, so the plugin is presentation-only.
+ * for cross-conversation totals — plus their bodies, a header entry point, and
+ * the copy dictionaries. Nothing here mutates any Harness state: every figure
+ * is derived from projections the Host already publishes, so the plugin is
+ * presentation-only.
  */
 import { en } from './locales/en.ts'
 import { zh } from './locales/zh.ts'
+import { UsageHeaderButton } from './HeaderButton.tsx'
 import { UsageHistoryPanelBody, UsagePanelBody } from './panels.tsx'
 import type { UsageInsightsContext } from './runtime.ts'
 
-/** Required browser services: slots, copy, the right-Sidebar tab registry, and session reads. */
-export const inject = ['slots', 'locale', 'sidebarRightTabs', 'sessions']
+/** Required browser services: slots, copy, the right-Sidebar faces, and session reads. */
+export const inject = ['slots', 'locale', 'sidebarRightTabs', 'sidebarRight', 'sessions']
 
 /** This package's copy namespace. */
 const NS = 'usageInsights'
@@ -24,11 +26,13 @@ const USAGE_TAB = 'dsh-usage-insights'
 const HISTORY_TAB = 'dsh-usage-insights.history'
 
 /**
- * Client plugin body: register copy, two tab types and their bodies.
+ * Client plugin body: register copy, two tab types, their bodies, and the
+ * header entry that opens the usage page from a collapsed column.
  * @param ctx - client root context.
  */
 export function apply(ctx: UsageInsightsContext): void {
   const t = ctx.locale.bind(NS)
+  const readProjections = (sessionId: string): Promise<void> => ctx.sessions.refreshProjections(sessionId)
 
   ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'usage-insights: dictionaries')
 
@@ -60,14 +64,35 @@ export function apply(ctx: UsageInsightsContext): void {
     name: 'sidebar.right.pane.tab',
     key: USAGE_TAB,
     locale: NS,
+    inject: () => ({ readProjections }),
   }, UsagePanelBody))
 
   ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
     name: 'sidebar.right.pane.tab',
     key: HISTORY_TAB,
     locale: NS,
-    inject: () => ({
-      measure: (sessionId: string) => ctx.sessions.refreshProjections(sessionId),
-    }),
+    inject: () => ({ readProjections }),
   }, UsageHistoryPanelBody))
+
+  const openUsage = (): void => { ctx.sidebarRight.openTab('usage') }
+
+  // Two entry points: the shipped session header's utility strip, and the
+  // composer's compact control row. A composition that replaces the session
+  // header (as some products do) keeps only the composer entry, which is why
+  // both register the same button.
+  ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({
+    name: 'conversation.session.header.utilities',
+    id: 'usage-insights',
+    order: 20,
+    locale: NS,
+    inject: () => ({ open: openUsage }),
+  }, UsageHeaderButton))
+
+  ctx.slots.inject('conversation.input.right', () => ctx.slots.register({
+    name: 'conversation.input.right',
+    id: 'usage-insights',
+    order: 10,
+    locale: NS,
+    inject: () => ({ open: openUsage }),
+  }, UsageHeaderButton))
 }

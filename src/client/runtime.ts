@@ -93,7 +93,11 @@ export interface SessionScopedProps {
   useProjection: (key: string) => unknown
   useSession: <T>(selector: (snapshot: { running: boolean }) => T) => T
   useSessions: <T>(selector: (snapshot: SessionListSnapshot) => T) => T
-  measure?: (sessionId: string) => Promise<void>
+  /**
+   * Ask the Host for one Session's whole projection set. Delivered by this
+   * plugin's inject face; absent in compositions without the sessions service.
+   */
+  readProjections?: (sessionId: string) => Promise<void>
 }
 
 /** Everything `apply` reads from the runtime. */

@@ -126,7 +126,6 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
                   {formatTokens(context.usedTokens)} <span className="dsu-ctx-sep">/</span>{' '}
                   {formatTokens(context.windowTokens)}
                 </span>
-                {context.ratio !== null && <span className="dsu-ctx-pct">{formatPercent(context.ratio)}</span>}
               </div>
               <MeterBar ratio={context.ratio} />
             </div>
