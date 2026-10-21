@@ -30,12 +30,8 @@ export interface ModelRef {
   model: string
 }
 
-/** One model's per-million-token prices in one currency. */
-export interface PriceEntry {
-  /** Exact provider, or omitted to match by model alone. */
-  provider?: string
-  /** Exact model id. */
-  model: string
+/** The four per-million-token rates of one billing band. */
+export interface PriceRates {
   /** Price per million uncached input tokens. */
   input: number
   /** Price per million cache-read input tokens. */
@@ -44,6 +40,22 @@ export interface PriceEntry {
   cacheWrite: number
   /** Price per million output tokens. */
   output: number
+}
+
+/**
+ * One model's per-million-token prices in one currency.
+ *
+ * The flat fields are the standard (peak) band. A provider that changes its
+ * rate by time of day supplies `offPeak`; the panel then reports an amount
+ * range instead of pretending a single band applies to a cumulative total.
+ */
+export interface PriceEntry extends PriceRates {
+  /** Exact provider, or omitted to match by model alone. */
+  provider?: string
+  /** Exact model id. */
+  model: string
+  /** Off-peak band; omitted when the provider does not vary by time of day. */
+  offPeak?: PriceRates
 }
 
 /** Plugin-owned price table; there is no Host pricing in the Harness. */
@@ -57,8 +69,13 @@ export interface PricingTable {
 
 /** An amount and how much of the usage it covers. */
 export interface CostView {
-  /** Currency amount in micro units (1e-6 of the currency). */
+  /** Currency amount in micro units (1e-6 of the currency); the lower bound when bands differ. */
   amountMicros: number
+  /**
+   * Upper-bound amount in micro units when the price table varies by billing
+   * band. Absent when one rate applies to every token.
+   */
+  amountMicrosMax?: number
   currency: string
   /** Tokens that had a price. */
   pricedTokens: number

@@ -451,6 +451,9 @@ export const css = `
   min-height: 2px;
   border-radius: 2px 2px 0 0;
   background: var(--dsw-alias-brand-primary);
+  /* The brand token is near-black here; a full-opacity block reads as a filled
+     rectangle rather than a bar. */
+  opacity: 0.45;
 }
 
 .dsu-bar--empty {

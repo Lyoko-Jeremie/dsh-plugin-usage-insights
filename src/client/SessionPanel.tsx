@@ -10,7 +10,7 @@ import type { CostView, SessionPanelProps, Translate } from './contract'
 import {
   formatCount,
   formatDuration,
-  formatMoney,
+  formatMoneyRange,
   formatPercent,
   formatTokens,
   formatTokensPerSecond,
@@ -34,8 +34,13 @@ function CostLine(props: { cost: CostView | null; t: Translate }): JSX.Element {
   return (
     <div className="dsu-cost">
       <span className="dsu-cost-label">{props.t('label.cost')}</span>
-      <span className="dsu-cost-amount">{formatMoney(props.cost.amountMicros, props.cost.currency)}</span>
+      <span className="dsu-cost-amount">
+        {formatMoneyRange(props.cost.amountMicros, props.cost.amountMicrosMax, props.cost.currency)}
+      </span>
       <span className="dsu-cost-note">{props.t('cost.estimated')}</span>
+      {props.cost.amountMicrosMax !== undefined && (
+        <span className="dsu-cost-note">{props.t('cost.range')}</span>
+      )}
       {!props.cost.complete && <span className="dsu-cost-note">{props.t('cost.partial')}</span>}
     </div>
   )
@@ -101,8 +106,14 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
             />
             <Stat
               label={t('label.cost')}
-              value={view.cost === null ? '—' : formatMoney(view.cost.amountMicros, view.cost.currency)}
-              hint={view.cost === null ? undefined : view.cost.complete ? t('label.cost.hint') : t('cost.partial')}
+              value={view.cost === null
+                ? '—'
+                : formatMoneyRange(view.cost.amountMicros, view.cost.amountMicrosMax, view.cost.currency)}
+              hint={view.cost === null
+                ? undefined
+                : view.cost.amountMicrosMax !== undefined
+                  ? t('cost.range')
+                  : view.cost.complete ? t('label.cost.hint') : t('cost.partial')}
             />
           </div>
           <div className="dsu-rows">

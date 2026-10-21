@@ -47,6 +47,7 @@ export const en = {
   'cost.unpriced': 'No price configured for this model',
   'cost.partial': 'Estimate covers part of the usage',
   'cost.estimated': 'estimate',
+  'cost.range': 'range spans peak and off-peak rates',
 
   'history.range.7d': '7 days',
   'history.range.30d': '30 days',

@@ -7,7 +7,7 @@
  */
 import type { JSX } from 'react'
 import type { HistoryPanelProps, HistoryRange } from './contract'
-import { formatCount, formatMoney, formatPercent, formatTokens } from '../lib/format'
+import { formatCount, formatMoneyRange, formatPercent, formatTokens } from '../lib/format'
 import { DailyBars, InlineMessage, Section, Stat, StyleTag } from './components'
 
 /**
@@ -62,8 +62,14 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
             />
             <Stat
               label={t('history.cost')}
-              value={view.cost === null ? '—' : formatMoney(view.cost.amountMicros, view.cost.currency)}
-              hint={view.cost === null ? undefined : view.cost.complete ? undefined : t('cost.partial')}
+              value={view.cost === null
+                ? '—'
+                : formatMoneyRange(view.cost.amountMicros, view.cost.amountMicrosMax, view.cost.currency)}
+              hint={view.cost === null
+                ? undefined
+                : view.cost.amountMicrosMax !== undefined
+                  ? t('cost.range')
+                  : view.cost.complete ? undefined : t('cost.partial')}
             />
           </div>
           <Section title={t('history.daily')}>

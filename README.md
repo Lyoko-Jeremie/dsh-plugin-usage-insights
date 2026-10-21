@@ -58,24 +58,49 @@ the app; the browser module generation is only reloaded on restart.
 ## Pricing (optional)
 
 The Harness publishes no monetary cost, so the plugin prices the four usage
-buckets itself. Edit `PRICING` in [`src/client/config.ts`](src/client/config.ts)
-and rebuild:
+buckets itself. The shipped table is DeepSeek's official list price (CNY per
+million tokens, read 2026-10-21 from the
+[pricing page](https://api-docs.deepseek.com/zh-cn/quick_start/pricing)):
+
+| Model | Band | Cache hit | Cache miss | Output |
+|---|---|---|---|---|
+| `deepseek-flash` | peak | 0.04 | 2 | 8 |
+| `deepseek-flash` | off-peak | 0.02 | 1 | 4 |
+| `deepseek-v4-pro` | peak | 0.30 | 9 | 27 |
+| `deepseek-v4-pro` | off-peak | 0.15 | 4.5 | 13.5 |
+
+Peak is Beijing time Monday-Friday 09:00-12:00 and 14:00-18:00 excluding
+mainland holidays; every other hour, including whole weekends, is off-peak at
+half the peak rate. DeepSeek bills no separate cache-write line (a cache write
+is uncached input), so `cacheWrite` repeats `input`.
+
+Edit `PRICING` in [`src/client/config.ts`](src/client/config.ts) to change
+rates and rebuild:
 
 ```ts
 export const PRICING: PricingTable = {
   currency: 'CNY',
   prices: [
-    { model: 'deepseek-chat', input: 2, cacheRead: 0.5, cacheWrite: 2, output: 3 },
+    { model: 'deepseek-flash', input: 2, cacheRead: 0.04, cacheWrite: 2, output: 8,
+      offPeak: { input: 1, cacheRead: 0.02, cacheWrite: 1, output: 4 } },
   ],
-  // fallback: { input: 2, cacheRead: 0.5, cacheWrite: 2, output: 3 },
+  // fallback: { input: 2, cacheRead: 0.04, cacheWrite: 2, output: 8 },
 }
 ```
 
 Rates are **per million tokens**. The formula is the one Reasonix uses:
-`amount = Σ tokens × ratePerMillion`, accumulated as integer micro-units to
-avoid float drift. A route with no matching entry (and no `fallback`) is
-reported as *unpriced* instead of being shown as `0`, and a total that mixes
-priced and unpriced usage is marked partial.
+`amount = Σ tokens × ratePerMillion`, each bucket rounded to a whole micro-unit
+before summing, so sums never drift in floating point. Two consequences of the
+cumulative projection matter here:
+
+- **A two-band table yields a range.** The token projections are cumulative, so
+  the panel cannot tell which band each request ran in. It prices every token
+  off-peak (lower bound) and at peak (upper bound) and shows e.g.
+  `¥3.70 – ¥7.40`. A single-band table shows one amount.
+- **Unpriced routes never show `0`.** A route with no matching entry and no
+  `fallback` is reported as *unpriced*; a total that mixes priced and unpriced
+  usage is marked partial. History is never repriced; the figures are an
+  estimate at the configured rates, not the provider's invoice.
 
 ## What the numbers mean
 

@@ -1,14 +1,23 @@
-/**
+﻿/**
  * Token pricing for the usage panel.
  *
  * Prices are plugin-owned configuration: the Harness reports token counts, not
- * money. Amounts accumulate as integer micro units (`tokens × ratePerMillion`
- * is already micro units) so sums stay exact and never drift in floating point.
+ * money. Amounts accumulate as integer micro units (`tokens 脳 ratePerMillion`
+ * is already micro units) so sums stay exact.
+ *
+ * A provider may publish two billing bands (peak and off-peak). A cumulative
+ * usage total cannot be attributed to the band each request actually ran in,
+ * so a two-band table yields an amount range: every token priced off-peak is
+ * the lower bound, every token priced at peak is the upper bound. The panel
+ * shows that range rather than one fabricated number, and no band's rate is
+ * ever applied to a token the route could not price.
  */
-import type { CostView, ModelRef, PriceEntry, PricingTable, TokenBuckets } from '../client/contract.ts'
+import type {
+  CostView, ModelRef, PriceRates, PricingTable, TokenBuckets,
+} from '../client/contract.ts'
 
-/** A resolved price row, without the route fields used to find it. */
-type PriceRates = Omit<PriceEntry, 'model' | 'provider'>
+/** A matched price row: the flat rates plus an optional off-peak band. */
+type RateCard = PriceRates & { offPeak?: PriceRates }
 
 /**
  * Price the four token buckets of one route.
@@ -23,16 +32,16 @@ type PriceRates = Omit<PriceEntry, 'model' | 'provider'>
  * @returns priced cost view, or null when no price applies to the route.
  */
 export function priceBuckets(table: PricingTable, model: ModelRef | null, buckets: TokenBuckets): CostView | null {
-  const rates = resolveRates(table, model)
-  if (rates === null) return null
+  const card = resolveCard(table, model)
+  if (card === null) return null
+  const peak = amountMicros(card, buckets)
+  const offPeak = card.offPeak === undefined ? undefined : amountMicros(card.offPeak, buckets)
+  const low = offPeak === undefined ? peak : Math.min(offPeak, peak)
+  const high = offPeak === undefined ? undefined : Math.max(offPeak, peak)
   const totalTokens = sumBuckets(buckets)
-  const amountMicros =
-    Math.round(buckets.uncachedInputTokens * rates.input) +
-    Math.round(buckets.cacheReadTokens * rates.cacheRead) +
-    Math.round(buckets.cacheWriteTokens * rates.cacheWrite) +
-    Math.round(buckets.outputTokens * rates.output)
   return {
-    amountMicros,
+    amountMicros: low,
+    ...(high === undefined || high === low ? {} : { amountMicrosMax: high }),
     currency: table.currency,
     pricedTokens: totalTokens,
     totalTokens,
@@ -45,18 +54,37 @@ export function priceBuckets(table: PricingTable, model: ModelRef | null, bucket
  *
  * @param table - plugin price table.
  * @param model - route to price, or null when the caller does not know it.
- * @returns the matching rates, or null when nothing (not even the fallback) applies.
+ * @returns the matched card, or null when nothing (not even the fallback) applies.
  */
-function resolveRates(table: PricingTable, model: ModelRef | null): PriceRates | null {
+function resolveCard(table: PricingTable, model: ModelRef | null): RateCard | null {
   if (model !== null) {
     const exact = table.prices.find(
-      (entry) => entry.provider !== undefined && entry.provider === model.provider && entry.model === model.model,
+      entry => entry.provider !== undefined && entry.provider === model.provider && entry.model === model.model,
     )
     if (exact !== undefined) return exact
-    const byModel = table.prices.find((entry) => entry.provider === undefined && entry.model === model.model)
+    const byModel = table.prices.find(entry => entry.provider === undefined && entry.model === model.model)
     if (byModel !== undefined) return byModel
   }
   return table.fallback ?? null
+}
+
+/**
+ * Sum the four buckets at one band's rates.
+ *
+ * Each bucket rounds to whole micro units before summing, matching the
+ * provider's per-bucket billing lines rather than rounding one blended total.
+ *
+ * @param rates - one band's per-million-token rates.
+ * @param buckets - provider token buckets.
+ * @returns the amount in micro units.
+ */
+function amountMicros(rates: PriceRates, buckets: TokenBuckets): number {
+  return (
+    Math.round(buckets.uncachedInputTokens * rates.input) +
+    Math.round(buckets.cacheReadTokens * rates.cacheRead) +
+    Math.round(buckets.cacheWriteTokens * rates.cacheWrite) +
+    Math.round(buckets.outputTokens * rates.output)
+  )
 }
 
 /**
@@ -77,7 +105,8 @@ function sumBuckets(buckets: TokenBuckets): number {
  * A null side contributes no tokens and no amount, but it also marks the merge
  * incomplete: null means that usage could not be priced. When both sides exist,
  * the result keeps the left currency and is complete only when both sides were
- * complete in the same currency.
+ * complete in the same currency. Bounds sum independently, so a range stays a
+ * range.
  *
  * @param left - first cost view, or null.
  * @param right - second cost view, or null.
@@ -86,8 +115,12 @@ function sumBuckets(buckets: TokenBuckets): number {
 export function mergeCosts(left: CostView | null, right: CostView | null): CostView | null {
   if (left === null) return right === null ? null : { ...right, complete: false }
   if (right === null) return { ...left, complete: false }
+  const hasRange = left.amountMicrosMax !== undefined || right.amountMicrosMax !== undefined
   return {
     amountMicros: left.amountMicros + right.amountMicros,
+    ...(hasRange
+      ? { amountMicrosMax: (left.amountMicrosMax ?? left.amountMicros) + (right.amountMicrosMax ?? right.amountMicros) }
+      : {}),
     currency: left.currency,
     pricedTokens: left.pricedTokens + right.pricedTokens,
     totalTokens: left.totalTokens + right.totalTokens,

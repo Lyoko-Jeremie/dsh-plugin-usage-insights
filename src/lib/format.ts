@@ -122,3 +122,20 @@ export function formatMoney(micros: number, currency: string): string {
     maximumFractionDigits: fractionDigits,
   }).format(amount)
 }
+
+/**
+ * Format a cost amount that may span two billing bands.
+ *
+ * A table with peak and off-peak rates cannot attribute a cumulative total to
+ * one band, so the panel shows the bounds the real amount falls between.
+ *
+ * @param micros - lower-bound amount in micro units.
+ * @param microsMax - upper-bound amount in micro units, or undefined for one band.
+ * @param currency - ISO 4217 code the price table is denominated in.
+ * @returns `"¥3.70"`, or `"¥3.70 – ¥7.40"` when the bounds differ.
+ */
+export function formatMoneyRange(micros: number, microsMax: number | undefined, currency: string): string {
+  const low = formatMoney(micros, currency)
+  if (microsMax === undefined || microsMax === micros) return low
+  return `${low} – ${formatMoney(microsMax, currency)}`
+}

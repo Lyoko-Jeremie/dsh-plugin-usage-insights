@@ -3,6 +3,7 @@ import {
   formatCount,
   formatDuration,
   formatMoney,
+  formatMoneyRange,
   formatPercent,
   formatTokens,
   formatTokensPerSecond,
@@ -135,5 +136,20 @@ describe('formatMoney', () => {
   it('uses the currency symbol of the given code', () => {
     expect(formatMoney(1_000_000, 'EUR')).toBe('€1.00')
     expect(formatMoney(1_000_000, 'CNY')).toBe('¥1.00')
+  })
+})
+
+describe('formatMoneyRange', () => {
+  it('prints one amount when a single band applies', () => {
+    expect(formatMoneyRange(1_000_000, undefined, 'CNY')).toBe('¥1.00')
+    expect(formatMoneyRange(1_000_000, 1_000_000, 'CNY')).toBe('¥1.00')
+  })
+
+  it('prints both bounds when peak and off-peak differ', () => {
+    expect(formatMoneyRange(1_000_000, 2_000_000, 'CNY')).toBe('¥1.00 – ¥2.00')
+  })
+
+  it('keeps sub-cent bounds readable', () => {
+    expect(formatMoneyRange(2_345, 4_690, 'USD')).toBe('$0.00235 – $0.00469')
   })
 })
