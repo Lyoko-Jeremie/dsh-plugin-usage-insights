@@ -8,7 +8,7 @@ The plugin adds two right-Sidebar pages:
 
 | Page | Shows |
 |---|---|
-| **Usage** | Session overview (tokens, cache hit, cost), context-window occupancy and composition, session metrics, and a per-request table (Beijing time, peak/off-peak band, model, input/cache/output, that request's cost) |
+| **Usage** | Session overview (tokens, cache hit, cost), context-window occupancy and composition, session metrics, and a collapsible per-request table (Beijing time, `峰`/`谷` band, model, input/cache/output, that request's cost) that starts folded |
 | **Usage history** | Tokens, cache hit rate, active days and a per-day chart aggregated across every conversation, for 7 days / 30 days / all |
 
 The Host half registers two session projections, so the panel prices each

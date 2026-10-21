@@ -22,7 +22,8 @@ export const en = {
   'steps.output': 'Out',
   'steps.cost': 'Cost',
   'steps.peak': 'Peak',
-  'steps.offPeak': 'Off-peak',
+  'steps.offPeak': 'Off',
+  'steps.count': '{n} requests',
   'steps.omitted': 'Showing the latest {shown} of {total} requests',
   'steps.empty': 'No per-request records yet',
 

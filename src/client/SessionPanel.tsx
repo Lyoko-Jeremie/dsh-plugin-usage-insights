@@ -189,17 +189,26 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
         </Section>
       )}
       {view.stepActivity !== null && view.stepActivity.steps.length > 0 && (
-        <Section
-          title={t('section.steps')}
-          aside={view.stepActivity.omittedSteps > 0
-            ? t('steps.omitted', {
-              shown: view.stepActivity.steps.length,
-              total: view.stepActivity.totalSteps,
-            })
-            : undefined}
-        >
-          <StepTable steps={view.stepActivity.steps} t={t} />
-        </Section>
+        <details className="dsu-steps-details">
+          <summary className="dsu-steps-summary">
+            <span className="dsu-chevron" aria-hidden="true" />
+            <span className="dsu-section-title">{t('section.steps')}</span>
+            <span className="dsu-steps-meta">
+              {t('steps.count', { n: view.stepActivity.totalSteps })}
+            </span>
+          </summary>
+          <div className="dsu-steps-body">
+            {view.stepActivity.omittedSteps > 0 && (
+              <div className="dsu-note">
+                {t('steps.omitted', {
+                  shown: view.stepActivity.steps.length,
+                  total: view.stepActivity.totalSteps,
+                })}
+              </div>
+            )}
+            <StepTable steps={view.stepActivity.steps} t={t} />
+          </div>
+        </details>
       )}
     </div>
   )

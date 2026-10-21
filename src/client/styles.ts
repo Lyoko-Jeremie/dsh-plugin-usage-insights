@@ -469,6 +469,65 @@ export const css = `
   font-variant-numeric: tabular-nums;
 }
 
+.dsu-steps-details {
+  padding-top: 12px;
+  border-top: 1px solid var(--dsw-alias-border-l2);
+  min-width: 0;
+}
+
+.dsu-steps-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  min-width: 0;
+}
+
+.dsu-steps-summary::-webkit-details-marker {
+  display: none;
+}
+
+.dsu-steps-summary:hover .dsu-section-title {
+  color: var(--dsw-alias-label-primary);
+}
+
+.dsu-steps-summary:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.dsu-chevron {
+  width: 0;
+  height: 0;
+  border-left: 4px solid var(--dsw-alias-label-tertiary);
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transition: transform 0.12s ease;
+}
+
+.dsu-steps-details[open] .dsu-chevron {
+  transform: rotate(90deg);
+}
+
+.dsu-steps-meta {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dsu-steps-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  min-width: 0;
+}
+
 .dsu-steps-wrap {
   width: 100%;
   min-width: 0;

@@ -23,8 +23,9 @@ export const zh = {
   'steps.cacheRead': '缓存读',
   'steps.output': '输出',
   'steps.cost': '费用',
-  'steps.peak': '高峰',
-  'steps.offPeak': '空闲',
+  'steps.peak': '峰',
+  'steps.offPeak': '谷',
+  'steps.count': '{n} 步',
   'steps.omitted': '仅显示最近 {shown} 步，共 {total} 步',
   'steps.empty': '暂无分步记录',
 
