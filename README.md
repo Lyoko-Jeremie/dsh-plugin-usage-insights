@@ -1,177 +1,105 @@
-# dsh-usage-insights
+# dsh-usage-insights · DSH 用量洞察
 
-Token usage, context occupancy and cross-conversation totals in the
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web right
-sidebar.
+[English](README.EN.md) | 简体中文
 
-The plugin adds two right-Sidebar pages:
+在 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web 版的右侧栏里，查看每个对话的 Token 用量、上下文占用、会话指标，以及跨对话的用量汇总与峰谷费用。
 
-| Page | Shows |
-|---|---|
-| **Usage** | Session overview (tokens, cache hit, cost), context-window occupancy and composition, session metrics, and a collapsible per-request table (Beijing time, `峰`/`谷` band, model, input/cache/output, that request's cost) that starts folded |
-| **Usage history** | Tokens, cache hit rate, active days and a per-day chart aggregated across every conversation, for 7 days / 30 days / all |
+这是一个纯展示插件：所有数字都来自 Harness 已经发布的会话投影，插件不写入会话日志、不新增模型可见内容、不上传任何数据。
 
-The Host half registers two session projections, so the panel prices each
-request in the billing band it actually ran in, keeps per-request figures across
-a reload, and reads every live conversation independently of which one a
-browser has open. No model-visible content and no session events are added; the
-projections are derived from the committed log and checkpointed by the Harness
-projection cache.
+![用量面板](assets/panel.png)
 
-## Requirements
+## 功能
 
-- DeepSeek Harness with the Web GUI (`dsh web`), including the `token-meter`
-  and `session-stats` plugins (both ship in the default Web composition).
-- Node.js 22+ only for building from source.
+插件在右侧栏提供两个页面。
 
-## Install
+### 用量（当前对话）
 
-From a checkout:
+- **会话概览**：请求数、Token 总量、输入 / 缓存读 / 缓存写 / 输出四桶、缓存命中率、费用。
+- **上下文窗口**：已用 / 容量、占用百分比，以及系统提示、工具定义、消息三段的近似构成。
+- **会话指标**：回合数、步数、每回合 Token、模型耗时、工具耗时、首字时间、解码速度。
+- **分步明细**（默认折叠，点击展开）：每个模型请求一行，包含北京时间、峰谷时段、`回合.步`、模型、输入 / 缓存读 / 输出、该步费用。表格只展示最近 20 条，并标注总数。
+- **精确峰谷计价**：每个请求按它实际发起时刻所属的时段计价，而不是对整个会话套用单一价格。
+
+![分步明细](assets/panel-requests.png)
+
+### 用量汇总（全部对话）
+
+- 区间切换：最近 7 天 / 30 天 / 全部。
+- 总 Token、对话数（已统计 / 总数）、活跃天数、缓存命中率、费用。
+- 每日 Token 柱状图：有分步数据的会话按请求实际发生日期与时段归集，否则回退到「最后活动日」并明确标注。
+- 缺少分步数据的会话会自动补齐（数量较多时提供「补齐」按钮）。
+
+![用量汇总](assets/history.png)
+
+### 数据持久化与多会话
+
+- Host 半注册两个 Session 投影：`usageSteps`（最近 200 个请求，含开始时刻与峰谷）与 `usageBands`（按天 × 时段 × 模型聚合，保留 90 天、总量终身累计）。
+- 两者都由 Harness 的投影缓存 checkpoint：重新打开对话、刷新页面、重启应用后自动恢复。
+- 每个会话独立折叠，与浏览器是否打开无关；汇总页读取会话列表里的投影值，后台并行运行的对话也能实时计入。
+
+## 环境要求
+
+- DeepSeek Harness，使用 Web GUI（`dsh web`）。默认 Web 组合已包含 `token-meter` 与 `session-stats`，本插件依赖它们提供的投影。
+- 仅从源码构建时需要 Node.js 22+。
+
+## 安装
+
+### 从 GitHub 安装
 
 ```sh
-# in the Harness CLI
-dsh plugin install /absolute/path/to/dsh-usage-insights
+dsh plugin install github:Lyoko-Jeremie/dsh-plugin-usage-insights
 dsh web
 ```
 
-Or from a Git URL:
+### 从本地目录安装
 
 ```sh
-dsh plugin install github:<you>/dsh-usage-insights
+dsh plugin install /absolute/path/to/dsh-plugin-usage-insights
+dsh web
 ```
 
-You can also ask the Harness agent to install the bundle directory with the
-plugin manager. Reload the page once after installing or upgrading so the
-browser loads the new module generation.
+也可以把仓库地址发给正在使用的 Harness 会话，让 Agent 用插件管理器安装。
 
-Open the panels in either of two ways:
+安装后**重启 `dsh web`**：Host 半要在启动时注册投影，仅刷新页面不会生效；随后刷新一次页面加载新的浏览器模块。
 
-- **Composer button** — the small bar-chart icon to the left of the model
-  selector in the message composer opens the right Sidebar directly on the
-  usage page for the current conversation.
-- **Right Sidebar** — expand the column, then use `+` in its tab strip and pick
-  **Usage** or **Usage history** from the guide page.
+### 升级
 
-The right Sidebar starts collapsed, and a composition may replace the
-conversation session header, so the composer button is the reliable entry.
+重新构建并安装后重启 `dsh web`，再刷新页面。
 
-The Host half registers projections at startup: after installing or upgrading,
-restart `dsh web` (a page reload alone does not register them), then reload the
-page.
+## 打开面板
 
-## Per-request data
+- **输入框按钮**：消息输入框工具行里、模型选择器左侧的柱状图图标，点一下会展开右侧栏并直接打开「用量」页。
+- **右侧栏**：展开右侧栏，点标签栏的 `+`，在指南页选择「用量」或「用量汇总」。
 
-Two Host projections do the work:
+右侧栏默认是收起的，且某些组合会替换会话头部，所以输入框按钮是最可靠的入口。
 
-| Projection | Holds | Limits (default) |
+## 数据来源与口径
+
+| 展示项 | 数据来源 | 说明 |
 |---|---|---|
-| `usageSteps` | Recent requests: start time, turn/step, provider/model, band, four token buckets | 200 folded, the latest 20 reach the panel |
-| `usageBands` | Lifetime and per-day rollup, split by billing band and model | 90 days retained |
+| 四桶 Token、缓存命中率 | `tokenUsage` 投影 | Provider 上报的精确计数，四个桶互不重叠 |
+| 上下文已用 / 容量 | `contextPressure` 投影 | 最近一次请求的 prompt 大小（或按会话增量投影）与模型容量 |
+| 上下文构成 | `contextBreakdown` 投影 | 启发式近似：系统提示 / 工具定义 / 消息，不是计费值 |
+| 回合、步数、模型/工具耗时、首字时间、解码速度 | `sessionStats` 投影 | 来自完整持久日志，翻页与压缩不影响 |
+| 分步明细、峰谷、精确费用 | 本插件 Host 投影 `usageSteps` / `usageBands` | 折叠 `step/start`、`assistant/message`、`assistant/attempt` 事件 |
+| 费用 | 本插件内置价格表 | 见下文「价格配置」 |
 
-- **Bands** follow DeepSeek's rule: Beijing time Monday-Friday 09:00-12:00 and
-  14:00-18:00 is peak; everything else is off-peak at half price. Holidays are
-  configured, not derived: `holidays: ['2026-10-01', ...]` under `config:` in
-  the bundle patch marks those Beijing days as off-peak.
-- **Persistence** is the Harness projection cache: reopening a conversation or
-  restarting the app restores both projections from the checkpoint.
-- **Multiple conversations** are folded independently by the Host, whether or
-  not a browser has them open; the history page finds their rollups in the
-  session-list projection values.
-- **Requests whose log entry names no route** (a failed attempt before the
-  first message) are priced at the conversation's current route.
+**峰谷规则**（与 DeepSeek 官方文档一致，北京时间）：周一至周五 09:00–12:00、14:00–18:00 为高峰；其余时段、周末以及中国法定节假日全天为空闲（半价）。调休上班的周末仍按空闲计价，因为官方规则按「周一至周五」判定。
 
-Tune the limits in the bundle patch:
+费用是**估算**：按配置的价格表对 Token 计数计价，不是官方账单。没有匹配价格的模型会显示「未配置」，而不是 0。
 
-```yaml
-- insert:
-    - id: usage-insights
-      name: dsh-usage-insights
-      config:
-        stepHistory: 200
-        stepWindow: 20
-        bandDays: 90
-        useBuiltinHolidays: true
-        holidays: []            # extra YYYY-MM-DD days
-        holidayRanges: []       # extra YYYY-MM-DD..YYYY-MM-DD spans
-        holidaySync:
-          enabled: false
-          urlTemplate: 'https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/{year}.json'
-          years: []             # empty: current and next Beijing year
-          timeoutMs: 4000
-```
+## 价格配置
 
-## Statutory holidays
+Harness 不提供货币计价，价格表由插件维护，位于 [`src/client/config.ts`](src/client/config.ts)。内置的是 DeepSeek 官方价格（元 / 百万 tokens，读取于 2026-10-21）：
 
-DeepSeek bills peak hours on Beijing weekdays **excluding statutory holidays**.
-The plugin ships a calendar for 2025-2026 (from the State Council
-announcements, extracted through
-[`holiday-cn`](https://github.com/NateScarlet/holiday-cn)), and you can extend
-it two ways:
-
-```yaml
-config:
-  useBuiltinHolidays: true      # false = start from an empty calendar
-  holidays: ['2027-01-01']      # single days
-  holidayRanges: ['2027-02-06..2027-02-12']
-```
-
-**Why weekends never need configuration:** the official rule is
-"Monday-Friday excluding statutory holidays", so a Saturday that the State
-Council turns into a swap workday is still billed off-peak. Only `isOffDay`
-days in the announcement matter, and they matter only when they fall on a
-weekday.
-
-### Automatic refresh (optional)
-
-```yaml
-config:
-  holidaySync:
-    enabled: true
-    urlTemplate: 'https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/{year}.json'
-    years: []           # empty: the current and next Beijing year
-    timeoutMs: 4000
-```
-
-At startup the Host fetches the year documents, keeps `isOffDay: true` days,
-and unions them with the built-in and configured calendar. A failed or slow
-fetch never blocks the panel: it logs one warning and falls back to the
-built-in calendar, because a partial calendar would silently move requests into
-the wrong band. The dataset is maintained by a third party (daily scrape of
-gov.cn) and is fetched from a CDN; enable this only if you want the newest year
-without upgrading the plugin.
-
-### Can the current band be fetched from DeepSeek?
-
-No. As of 2026-10-21 the official documentation
-([Models & Pricing](https://api-docs.deepseek.com/zh-cn/quick_start/pricing))
-defines the windows as prose only; the API exposes no pricing-band endpoint, and
-the account API reports balance, not the active tariff. Community tooling such
-as [`dsh-deepseek-price`](https://github.com/oxgbl/dsh-deepseek-price) also
-computes the band locally from the Beijing-time rule. The plugin therefore
-derives every request's band from its own start timestamp plus the holiday
-calendar — no network call is needed at billing time.
-
-## Pricing (optional)
-
-The Harness publishes no monetary cost, so the plugin prices the four usage
-buckets itself. The shipped table is DeepSeek's official list price (CNY per
-million tokens, read 2026-10-21 from the
-[pricing page](https://api-docs.deepseek.com/zh-cn/quick_start/pricing)):
-
-| Model | Band | Cache hit | Cache miss | Output |
+| 模型 | 时段 | 缓存命中 | 缓存未命中 | 输出 |
 |---|---|---|---|---|
-| `deepseek-flash` | peak | 0.04 | 2 | 8 |
-| `deepseek-flash` | off-peak | 0.02 | 1 | 4 |
-| `deepseek-v4-pro` | peak | 0.30 | 9 | 27 |
-| `deepseek-v4-pro` | off-peak | 0.15 | 4.5 | 13.5 |
+| `deepseek-flash` | 高峰 | 0.04 | 2 | 8 |
+| `deepseek-flash` | 空闲 | 0.02 | 1 | 4 |
+| `deepseek-v4-pro` | 高峰 | 0.30 | 9 | 27 |
+| `deepseek-v4-pro` | 空闲 | 0.15 | 4.5 | 13.5 |
 
-Peak is Beijing time Monday-Friday 09:00-12:00 and 14:00-18:00 excluding
-mainland holidays; every other hour, including whole weekends, is off-peak at
-half the peak rate. DeepSeek bills no separate cache-write line (a cache write
-is uncached input), so `cacheWrite` repeats `input`.
-
-Edit `PRICING` in [`src/client/config.ts`](src/client/config.ts) to change
-rates and rebuild:
+修改价格后重新构建：
 
 ```ts
 export const PRICING: PricingTable = {
@@ -184,103 +112,128 @@ export const PRICING: PricingTable = {
 }
 ```
 
-Rates are **per million tokens**. The formula is the one Reasonix uses:
-`amount = Σ tokens × ratePerMillion`, each bucket rounded to a whole micro-unit
-before summing, so sums never drift in floating point. Two consequences of the
-cumulative projection matter here:
+```sh
+npm run build   # 重新生成 dist/client.js
+```
 
-- **Cost is exact when the band rollup is available.** Every request is priced
-  in the band its start fell in, so the panel shows one amount labelled
-  "priced per request band".
-- **A fallback conversation yields a range.** A conversation whose band rollup
-  has not been read yet is priced from its cumulative counters: every token
-  off-peak (lower bound) and at peak (upper bound), shown as e.g.
-  `¥3.70 – ¥7.40` with a *Load missing* control.
-- **Unpriced routes never show `0`.** A route with no matching entry and no
-  `fallback` is reported as *unpriced*; a total that mixes priced and unpriced
-  usage is marked partial. History is never repriced; the figures are an
-  estimate at the configured rates, not the provider's invoice.
+计费公式参考 Reasonix：`金额 = Σ tokens × 每百万单价`，每个桶先取整到微单位再相加，避免浮点误差。单时段价格表只产生一个金额；峰谷双档价格表在缺少分步数据时产生区间（下界全按空闲、上界全按高峰），有分步数据时则按实际时段精确计价。
 
-## What the numbers mean
+## 法定节假日
 
-| Figure | Source | Notes |
-|---|---|---|
-| Tokens, input/output/cache read/cache write | `tokenUsage` projection | Exact provider buckets; cache reads and writes are disjoint from uncached input |
-| Cache hit | `tokenUsage` | `cacheRead ÷ (uncached + cacheRead + cacheWrite)` |
-| Requests | `sessionStats.steps` | Model calls, not turns; the durable count of closed steps |
-| Turns / model time / tool time | `sessionStats` | Whole durable log, unaffected by paging or compaction |
-| First token / decode speed | `sessionStats` | `ttftMs ÷ ttftSteps`, `decodeTokens ÷ decodeMs` |
-| Context used / capacity | `contextPressure` | `projectedTokens` (provider-anchored next-request size), `contextWindow` |
-| Context composition | `contextBreakdown` | Heuristic estimate of system / tools / messages — not billed tokens |
-| Cost | plugin price table | Estimate from the four buckets |
-| Usage history | session-list projection values | Includes cold conversations served from the persisted projection cache |
+DeepSeek 的高峰时段排除中国法定节假日。插件内置 2025–2026 年国务院公告的放假日（经 [`holiday-cn`](https://github.com/NateScarlet/holiday-cn) 提取），并支持两种扩展方式：
 
-The context composition and the projected size are estimates by design: the
-Harness prices text at a fixed density and anchors only to provider-reported
-prompt sizes. Treat them as reference figures, never as billing records.
+```yaml
+config:
+  useBuiltinHolidays: true          # false = 只用手动配置
+  holidays: ['2027-01-01']          # 单个日期
+  holidayRanges: ['2027-02-06..2027-02-12']   # 闭区间
+```
 
-## Known limitations (v0.3)
+### 自动同步（可选）
 
-- **The request table is a window.** The Host folds the latest 200 requests and
-  the panel receives the latest 20 of them; older requests stay only in the
-  session log. The per-band rollup still counts every request.
-- **Band retention is 90 days.** Daily rows older than that are dropped from the
-  rollup, while its lifetime totals keep counting them.
-- **Holidays are configuration.** A mainland holiday that is not listed in
-  `holidays` is billed as a peak weekday, so its cost is over-estimated.
-- **No reasoning-token bucket in the cumulative view.** `usageSteps` carries
-  `reasoningTokens` per request, but the session-level `tokenUsage` projection
-  merges reasoning into output.
-- **Pricing lives in source.** Edit `src/client/config.ts` and rebuild.
-- **Days are exact only with the band rollup.** A conversation that still falls
-  back to cumulative counters lands on its last activity day and the panel
-  labels that; a conversation with a rollup counts each request on the day it
-  ran.
-- **Subagent conversations are separate rows.** Their tokens are real, so they
-  are included in the history totals and in the conversation count.
-- **Cold rows without a projection checkpoint stay missing** until the
-  automatic backfill (or the *Load missing* button) reads their projections
-  from the Host.
-- **The usage page opens empty on a new conversation.** That is the empty
-  state, not a failure: a conversation with no billed request has no usage to
-  report.
+```yaml
+config:
+  holidaySync:
+    enabled: true
+    urlTemplate: 'https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/{year}.json'
+    years: []          # 留空 = 北京时间的今年与明年
+    timeoutMs: 4000
+```
 
-## Development
+启用后，Host 在启动时拉取对应年份的数据并合并；失败或超时会记录一条警告并回退到内置日历——部分日历会静默把请求归错时段，所以宁可回退也不使用残缺数据。该数据由第三方每日抓取国务院公告维护；不想依赖网络时保持默认关闭即可。
+
+> 官方没有提供「当前离线时段」的查询接口。DeepSeek 文档只以文字定义时段，账户接口也只返回余额，因此插件始终按请求开始时刻 + 北京时间规则 + 节假日日历在本地判定。
+
+## 配置项参考
+
+```yaml
+- insert:
+    - id: usage-insights
+      name: dsh-usage-insights
+      config:
+        stepHistory: 200            # 折叠保留的请求数（checkpoint 大小）
+        stepWindow: 20              # 面板展示的请求数
+        bandDays: 90                # 每日聚合保留天数
+        useBuiltinHolidays: true    # 使用内置 2025-2026 节假日
+        holidays: []                # 额外放假日 YYYY-MM-DD
+        holidayRanges: []           # 额外放假区间 YYYY-MM-DD..YYYY-MM-DD
+        holidaySync:
+          enabled: false
+          urlTemplate: 'https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/{year}.json'
+          years: []
+          timeoutMs: 4000
+```
+
+## 架构
+
+```
+Host（index.js）
+├── usageSteps 投影：折叠 step/start + assistant/message + assistant/attempt
+│     → 最近 200 个请求（时间、回合、模型、四桶、峰谷）
+└── usageBands 投影：按天 × 时段 × 模型聚合（90 天 + 终身总量）
+        │  Harness 投影缓存 checkpoint（重开/重启恢复）
+        ▼
+Client（dist/client.js）
+├── 「用量」页：读 tokenUsage / contextPressure / contextBreakdown / sessionStats / usageSteps / usageBands
+├── 「用量汇总」页：读会话列表中的 usageBands 投影值
+└── 输入框柱状图按钮：展开右侧栏并打开用量页
+```
+
+- Host 半只做投影折叠与节假日解析，不做任何 UI。
+- Client 半不依赖任何 `@deepseek-ai/*` 客户端包，只用平台基线（React）和自己的组件与样式。
+- 不新增 Session 事件，不改变会话格式。
+
+## 开发
 
 ```sh
 npm install
-npm run typecheck
-npm test            # vitest over the pure derivations
-npm run build       # bundles dist/client.js in the Harness module-loader format
+npm run typecheck        # TypeScript
+npm test                 # Vitest：计价、峰谷、投影折叠、聚合、格式化
+npm run build            # 生成 dist/client.js（Harness module-loader 格式）
+npm run verify:bundle    # 在伪造 module loader 下校验注册面
+npm run verify:render    # 用真实 React 在 Harness 外渲染两个面板
+npm run check            # 以上全部
 ```
 
-Layout:
+安装到本地 profile 后即可预览：
 
-```
-index.js            Host half (no registrations in v0.1)
-src/client/         Browser half: registration, slot bodies, view, containers
-src/lib/            Pure derivations: formatting, pricing, aggregation, usage
-tests/              Unit tests for the derivations
-locale/             Plugin Manager title/description (en, zh)
+```sh
+dsh plugin install /absolute/path/to/dsh-plugin-usage-insights
+dsh web
 ```
 
-The Client bundle must not import any `@deepseek-ai/*` package: it receives
-React and the rest of the platform baseline through the Harness module table.
-`src/client/runtime.ts` declares the minimal structural types of the services
-the plugin calls.
+目录结构：
 
-## 中文说明
+```
+index.js              Host 半：注册投影、解析节假日、可选同步
+src/host/             投影折叠、节假日解析
+src/shared/           峰谷判定（Host 与 Client 共用）
+src/client/           注册、面板容器、展示组件、样式、文案
+src/lib/              纯函数：格式化、计价、聚合、视图派生
+dist/client.js        构建产物（浏览器模块）
+assets/               README 截图
+```
 
-在 DeepSeek Harness Web 右栏显示 Token 用量、上下文占用、会话指标与跨会话汇总，
-只有展示层，不写入任何会话日志。
+## 已知限制
 
-- 安装：`dsh plugin install <本目录绝对路径>`，重启后打开右栏 `+` → 「用量」/「用量汇总」。
-- 费用：编辑 `src/client/config.ts` 的 `PRICING` 后 `npm run build` 重新构建；
-  价格按每百万 token 填写，未配置价格的模型显示为「未配置」而不是 0。
-- 数据来源：`tokenUsage`、`contextPressure`、`contextBreakdown`、`sessionStats`
-  四个会话投影；汇总页读取会话列表里缓存的投影值。
-- 已知限制：暂无逐回合明细、无推理 token 单独分桶、上下文构成为启发式估算。
+- 分步明细是窗口：Host 保留最近 200 条，面板展示最近 20 条；更早的请求只存在于会话日志中，聚合计数不受影响。
+- 每日聚合保留 90 天，更早的天只计入终身总量。
+- 2027 年及以后的节假日需要等国务院公告；可手动配置或开启自动同步。
+- 极少数失败尝试（`assistant/attempt` 且此前没有成功消息）没有模型路由，按当前会话模型计价。
+- 子会话作为独立对话计入汇总。
+- 费用是基于配置价格的估算，不是官方账单。
+
+## 隐私
+
+- 所有计算在本地完成，插件没有遥测、不上传用量数据。
+- 唯一可能的网络请求是可选开启的节假日数据同步，只请求公开的节假日 JSON。
+
+## 致谢
+
+- 价格与峰谷规则来自 [DeepSeek 官方定价文档](https://api-docs.deepseek.com/zh-cn/quick_start/pricing)。
+- 节假日数据来自 [`NateScarlet/holiday-cn`](https://github.com/NateScarlet/holiday-cn)。
+- 计费与信息层级参考了 Reasonix 的实现思路。
 
 ## License
 
-MIT
+[MIT](LICENSE)

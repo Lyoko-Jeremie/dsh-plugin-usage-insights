@@ -1,0 +1,288 @@
+# dsh-usage-insights
+
+English | [简体中文](README.md)
+
+Token usage, context occupancy, session metrics, and cross-conversation totals in the
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web right sidebar.
+
+The plugin is presentation-only: every figure comes from session projections the Harness
+already publishes. It writes no session events, adds no model-visible content, and uploads
+nothing.
+
+![Usage panel](assets/panel.png)
+
+## Features
+
+The plugin adds two right-Sidebar pages.
+
+### Usage (current conversation)
+
+- **Session overview**: request count, total tokens, the four disjoint buckets (input /
+  cache read / cache write / output), cache-hit rate, and cost.
+- **Context window**: used vs capacity, occupancy percentage, and the approximate
+  composition of system prompt / tool definitions / messages.
+- **Session metrics**: turns, steps, tokens per turn, model time, tool time, first-token
+  latency, decode speed.
+- **Request table** (collapsed by default, click to expand): one row per model request with
+  Beijing time, peak/off-peak band, `turn.step`, model, input / cache read / output, and that
+  request's cost. The table shows the latest 20 requests and states the total.
+- **Exact band pricing**: each request is priced in the band its own start fell in, instead
+  of applying one price to the whole conversation.
+
+![Request table](assets/panel-requests.png)
+
+### Usage history (all conversations)
+
+- Range switch: last 7 days / 30 days / all.
+- Total tokens, conversations measured / total, active days, cache-hit rate, cost.
+- Daily token chart: conversations with per-request data are grouped by the day and band
+  each request actually ran in; the rest fall back to their last activity day and say so.
+- Conversations without per-request data are backfilled automatically (a *Load missing*
+  control covers large catalogs).
+
+![Usage history](assets/history.png)
+
+### Persistence and multiple conversations
+
+- The Host half registers two session projections: `usageSteps` (latest 200 requests with
+  start time and band) and `usageBands` (per-day, per-band, per-model rollup; 90 daily rows
+  plus lifetime totals).
+- Both are checkpointed by the Harness projection cache, so reopening a conversation,
+  reloading the page, or restarting the app restores them.
+- Every conversation folds independently of whether a browser has it open; the history page
+  reads each conversation's rollup from the session list, so background conversations count
+  live.
+
+## Requirements
+
+- DeepSeek Harness with the Web GUI (`dsh web`). The default Web composition already ships
+  `token-meter` and `session-stats`, whose projections this plugin reads.
+- Node.js 22+ only when building from source.
+
+## Install
+
+### From GitHub
+
+```sh
+dsh plugin install github:Lyoko-Jeremie/dsh-plugin-usage-insights
+dsh web
+```
+
+### From a local checkout
+
+```sh
+dsh plugin install /absolute/path/to/dsh-plugin-usage-insights
+dsh web
+```
+
+You can also paste the repository URL into a Harness conversation and let the agent install
+the bundle with the plugin manager.
+
+After installing, **restart `dsh web`**: the Host half registers its projections at startup,
+and a page reload alone does not register them. Reload the page afterwards to load the new
+browser module.
+
+### Upgrade
+
+Rebuild and reinstall, restart `dsh web`, then reload the page.
+
+## Opening the panels
+
+- **Composer button**: the bar-chart icon left of the model selector in the message composer
+  expands the right Sidebar and opens the usage page directly.
+- **Right Sidebar**: expand the column, use `+` in its tab strip, and pick **Usage** or
+  **Usage history** from the guide page.
+
+The right Sidebar starts collapsed, and some compositions replace the conversation header, so
+the composer button is the reliable entry.
+
+## Data sources and semantics
+
+| Figure | Source | Notes |
+|---|---|---|
+| Four token buckets, cache-hit rate | `tokenUsage` projection | Exact provider-reported counts; the buckets are disjoint |
+| Context used / capacity | `contextPressure` projection | Prompt size of the newest request (or the next-request projection) and model capacity |
+| Context composition | `contextBreakdown` projection | Heuristic system / tools / messages estimate, not billed tokens |
+| Turns, steps, model/tool time, first token, decode speed | `sessionStats` projection | Whole durable log; paging and compaction do not change it |
+| Request table, band, exact cost | This plugin's `usageSteps` / `usageBands` | Folds `step/start`, `assistant/message`, and `assistant/attempt` |
+| Cost | Built-in price table | See *Pricing* below |
+
+**Band rule** (matching DeepSeek's documentation, Beijing time): Monday-Friday
+09:00-12:00 and 14:00-18:00 is peak; every other hour, whole weekends, and statutory
+holidays are off-peak at half price. A weekend turned into a workday by the swap scheme
+stays off-peak, because the official rule is weekday-based.
+
+Cost is an **estimate** priced from token counts, not the provider's invoice. A model with no
+matching price is reported as *unpriced* instead of `0`.
+
+## Pricing
+
+The Harness publishes no monetary cost, so the plugin owns the price table in
+[`src/client/config.ts`](src/client/config.ts). The shipped table is DeepSeek's official list
+price (CNY per million tokens, read 2026-10-21):
+
+| Model | Band | Cache hit | Cache miss | Output |
+|---|---|---|---|---|
+| `deepseek-flash` | peak | 0.04 | 2 | 8 |
+| `deepseek-flash` | off-peak | 0.02 | 1 | 4 |
+| `deepseek-v4-pro` | peak | 0.30 | 9 | 27 |
+| `deepseek-v4-pro` | off-peak | 0.15 | 4.5 | 13.5 |
+
+Edit the table and rebuild:
+
+```ts
+export const PRICING: PricingTable = {
+  currency: 'CNY',
+  prices: [
+    { model: 'deepseek-flash', input: 2, cacheRead: 0.04, cacheWrite: 2, output: 8,
+      offPeak: { input: 1, cacheRead: 0.02, cacheWrite: 1, output: 4 } },
+  ],
+  // fallback: { input: 2, cacheRead: 0.04, cacheWrite: 2, output: 8 },
+}
+```
+
+```sh
+npm run build   # regenerates dist/client.js
+```
+
+The formula follows Reasonix: `amount = Σ tokens × ratePerMillion`, with each bucket rounded
+to whole micro-units before summing so sums never drift. A single-band table yields one
+amount. A two-band table yields an amount range when per-request data is missing (every token
+off-peak as the lower bound, at peak as the upper); with per-request data it prices each
+request exactly.
+
+## Statutory holidays
+
+DeepSeek's peak windows exclude mainland Chinese statutory holidays. The plugin bundles the
+2025-2026 State Council calendars (extracted through
+[`holiday-cn`](https://github.com/NateScarlet/holiday-cn)) and accepts two extensions:
+
+```yaml
+config:
+  useBuiltinHolidays: true          # false = start from an empty calendar
+  holidays: ['2027-01-01']          # individual days
+  holidayRanges: ['2027-02-06..2027-02-12']   # inclusive spans
+```
+
+### Optional live refresh
+
+```yaml
+config:
+  holidaySync:
+    enabled: true
+    urlTemplate: 'https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/{year}.json'
+    years: []          # empty = the current and next Beijing year
+    timeoutMs: 4000
+```
+
+When enabled, the Host fetches the year documents at startup and unions them with the
+built-in and configured calendar. A failed or slow fetch logs one warning and falls back to
+the built-in calendar, because a partial calendar would silently move requests into the wrong
+band. The dataset is maintained by a third party (a daily scrape of gov.cn); leave the sync
+disabled if you do not want the network dependency.
+
+> DeepSeek exposes no endpoint for the current billing band. The documentation defines the
+> windows in prose only, and the account API reports balance, not the active tariff, so the
+> plugin always derives each request's band locally from its start time plus the holiday
+> calendar.
+
+## Configuration reference
+
+```yaml
+- insert:
+    - id: usage-insights
+      name: dsh-usage-insights
+      config:
+        stepHistory: 200            # requests folded and checkpointed
+        stepWindow: 20              # requests the panel shows
+        bandDays: 90                # daily rollup rows retained
+        useBuiltinHolidays: true    # use the bundled 2025-2026 calendar
+        holidays: []                # extra holiday days, YYYY-MM-DD
+        holidayRanges: []           # extra spans, YYYY-MM-DD..YYYY-MM-DD
+        holidaySync:
+          enabled: false
+          urlTemplate: 'https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/{year}.json'
+          years: []
+          timeoutMs: 4000
+```
+
+## Architecture
+
+```
+Host (index.js)
+├── usageSteps projection: folds step/start + assistant/message + assistant/attempt
+│     → latest 200 requests (time, turn, model, four buckets, band)
+└── usageBands projection: per-day, per-band, per-model rollup
+        │  Harness projection cache checkpoint (restored on reopen/restart)
+        ▼
+Client (dist/client.js)
+├── Usage page: reads tokenUsage / contextPressure / contextBreakdown / sessionStats /
+│               usageSteps / usageBands
+├── Usage history page: reads each conversation's usageBands from the session list
+└── Composer button: expands the right Sidebar and opens the usage page
+```
+
+- The Host half only folds projections and resolves the holiday calendar; it renders no UI.
+- The Client half imports no `@deepseek-ai/*` client package: it uses only the platform
+  baseline (React) plus its own components and styles.
+- No session event is added and the session format is unchanged.
+
+## Development
+
+```sh
+npm install
+npm run typecheck        # TypeScript
+npm test                 # Vitest: pricing, bands, projection folds, aggregation, formatting
+npm run build            # emits dist/client.js in the Harness module-loader format
+npm run verify:bundle    # checks the registration surface under a fake module loader
+npm run verify:render    # renders both panels with real React outside the Harness
+npm run check            # all of the above
+```
+
+Install into a local profile to preview:
+
+```sh
+dsh plugin install /absolute/path/to/dsh-plugin-usage-insights
+dsh web
+```
+
+Layout:
+
+```
+index.js              Host half: projections, holiday resolution, optional sync
+src/host/             Projection folds and holiday parsing
+src/shared/           Band arithmetic shared by Host and Client
+src/client/           Registration, panel containers, components, styles, copy
+src/lib/              Pure functions: formatting, pricing, aggregation, view derivation
+dist/client.js        Built browser artifact
+assets/               README screenshots
+```
+
+## Known limitations
+
+- The request table is a window: the Host retains the latest 200 requests and the panel shows
+  the latest 20. Older requests stay only in the session log; aggregates still count them.
+- Daily rows are retained for 90 days; older days count only toward the lifetime totals.
+- Holidays for 2027 and later require the State Council announcement; configure them manually
+  or enable the live refresh.
+- A rare failed attempt (`assistant/attempt` before any successful message) has no model
+  route and is priced at the conversation's current model.
+- Subagent conversations count as separate conversations in the history totals.
+- Cost is an estimate at the configured rates, not the provider's invoice.
+
+## Privacy
+
+- Everything is computed locally; the plugin has no telemetry and uploads no usage data.
+- The only possible network request is the optional holiday sync, which fetches public
+  holiday JSON only.
+
+## Acknowledgements
+
+- Pricing and band rules from the
+  [DeepSeek pricing documentation](https://api-docs.deepseek.com/zh-cn/quick_start/pricing).
+- Holiday data from [`NateScarlet/holiday-cn`](https://github.com/NateScarlet/holiday-cn).
+- Billing math and information hierarchy informed by Reasonix.
+
+## License
+
+[MIT](LICENSE)
