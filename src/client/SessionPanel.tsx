@@ -37,17 +37,18 @@ function CostLine(props: { cost: CostView | null; basis: CostBasis; t: Translate
       </div>
     )
   }
+  // One parenthetical states how the amount was derived; a partial estimate
+  // keeps its separate note because it qualifies the figure itself.
+  const derivation = props.basis === 'bands'
+    ? props.t('cost.bandsEstimated')
+    : props.t('cost.rangeEstimated')
   return (
     <div className="dsu-cost">
       <span className="dsu-cost-label">{props.t('label.cost')}</span>
       <span className="dsu-cost-amount">
         {formatMoneyRange(props.cost.amountMicros, props.cost.amountMicrosMax, props.cost.currency)}
       </span>
-      <span className="dsu-cost-note">{props.t('cost.estimated')}</span>
-      {props.basis === 'bands' && <span className="dsu-cost-note">{props.t('cost.bands')}</span>}
-      {props.cost.amountMicrosMax !== undefined && (
-        <span className="dsu-cost-note">{props.t('cost.range')}</span>
-      )}
+      <span className="dsu-cost-note">{`(${derivation})`}</span>
       {!props.cost.complete && <span className="dsu-cost-note">{props.t('cost.partial')}</span>}
     </div>
   )

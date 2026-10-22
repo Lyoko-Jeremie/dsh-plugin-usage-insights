@@ -88,10 +88,10 @@ export const en = {
 
   'cost.unpriced': 'No price configured for this model',
   'cost.partial': 'Estimate covers part of the usage',
-  'cost.estimated': 'estimate',
+  'cost.rangeEstimated': 'estimated from the peak/off-peak range',
+  'cost.bandsEstimated': 'estimated from per-request band pricing',
   'cost.range': 'range spans peak and off-peak rates',
   'cost.bands': 'priced per request band',
-  'cost.precise': 'priced from per-request bands',
 
   'history.range.7d': '7 days',
   'history.range.30d': '30 days',

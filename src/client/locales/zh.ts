@@ -90,10 +90,10 @@ export const zh = {
 
   'cost.unpriced': '该模型未配置价格',
   'cost.partial': '估算仅覆盖部分用量',
-  'cost.estimated': '估算',
+  'cost.rangeEstimated': '按峰谷价格区间估算',
+  'cost.bandsEstimated': '按每步实际时段计价估算',
   'cost.range': '区间覆盖峰谷两档价格',
   'cost.bands': '按每步实际时段计价',
-  'cost.precise': '按每步时段精确计价',
 
   'history.range.7d': '7 天',
   'history.range.30d': '30 天',
