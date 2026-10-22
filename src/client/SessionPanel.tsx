@@ -18,7 +18,8 @@ import {
 } from '../lib/format'
 import { peakTokenShare } from '../lib/band-share.ts'
 import {
-  bandShareText, ChildAgentsTable, CompositionBar, InlineMessage, Ring, Row, Section, Stat, StepTable, StyleTag,
+  bandShareText, ChildAgentsTable, CompositionBar, InlineMessage, ProgressBar, Ring, Row, Section, Stat,
+  StepTable, StyleTag,
 } from './components'
 
 /**
@@ -202,6 +203,7 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
                   <span className="dsu-ctx-pct">{contextLabel}</span>
                 </div>
               )}
+              {context.usedTokens !== null && <ProgressBar ratio={context.ratio} />}
               {breakdown !== null && breakdownTotal > 0 && (
                 <CompositionBar segments={[
                   { part: 'system', label: t('context.breakdown.system'), tokens: breakdown.systemTokens },

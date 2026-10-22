@@ -77,6 +77,21 @@ export function Row(props: { label: string; value: ReactNode; hint?: string }): 
 }
 
 /**
+ * Single-value progress bar.
+ *
+ * @param props - ratio in [0, 1], or null for an unknown value.
+ * @returns the rendered bar.
+ */
+export function ProgressBar(props: { ratio: number | null }): JSX.Element {
+  const ratio = props.ratio === null ? 0 : Math.min(1, Math.max(0, props.ratio))
+  return (
+    <div className="dsu-progress" role="img" aria-label={formatPercent(ratio)}>
+      <div className="dsu-progress-fill" style={{ width: `${ratio * 100}%` }} />
+    </div>
+  )
+}
+
+/**
  * One segment of the context composition bar.
  */
 export interface CompositionSegment {

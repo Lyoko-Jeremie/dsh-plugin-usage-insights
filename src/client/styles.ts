@@ -322,6 +322,20 @@ export const css = `
   overflow-wrap: anywhere;
 }
 
+.dsu-progress {
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.dsu-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--dsw-alias-brand-primary);
+}
+
 .dsu-compose {
   display: flex;
   width: 100%;
