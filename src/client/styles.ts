@@ -14,6 +14,14 @@ export const css = `
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
+  /* The tab body clips its child; the panel owns its own scroll so tall
+     content stays reachable instead of being cut at the pane edge. */
+  height: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--dsw-alias-border-l2) transparent;
   padding: 12px 12px 16px;
   color: var(--dsw-alias-label-primary);
   font-size: 12px;
@@ -25,6 +33,19 @@ export const css = `
 .dsu-root *::before,
 .dsu-root *::after {
   box-sizing: border-box;
+}
+
+.dsu-root::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dsu-root::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dsu-root::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: var(--dsw-alias-border-l2);
 }
 
 .dsu-head {
