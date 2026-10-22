@@ -154,8 +154,9 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
             <Stat label={t('label.requests')} value={formatCount(view.requests)} hint={t('label.requests.hint')} />
             <Stat
               label={t('label.tokens')}
-              value={formatTokenCount(view.totalTokens)}
-              hint={`${t('label.input')} ${formatTokenCount(view.buckets.uncachedInputTokens)} · ${t('label.output')} ${formatTokenCount(view.buckets.outputTokens)}`}
+              value={formatTokens(view.totalTokens)}
+              title={formatTokenCount(view.totalTokens)}
+              hint={`${t('label.input')} ${formatTokens(view.buckets.uncachedInputTokens)} · ${t('label.output')} ${formatTokens(view.buckets.outputTokens)}`}
             />
             <Stat
               label={t('label.cacheHit')}
