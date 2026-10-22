@@ -135,6 +135,7 @@ const cases = [
   ['session: empty', session, propsFor({}, list), ['[empty.noUsage]', '[agent.root]']],
   ['history: populated', history, propsFor({}, list),
     ['1M', '[history.range.7d]', '[section.agents]', '[agent.subagent]',
+      '[section.sessions]', '[sessions.cache]', '[sessions.tokens]',
       '[section.bands]', '[band.byTokens]']],
   ['history: empty', history, propsFor({}, { ids: [], byId: {} }), ['[history.empty]']],
 ]

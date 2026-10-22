@@ -117,6 +117,7 @@ describe('aggregateHistory', () => {
         root: zeroAgentTotals(),
         subagent: zeroAgentTotals(),
       },
+      sessions: [],
       bandShare: null,
       bandSharePartial: false,
     })
@@ -332,6 +333,38 @@ describe('aggregateHistory', () => {
       totalTokens: 1_000_000,
       complete: true,
     })
+  })
+
+  it('reports one row per measured conversation, largest first', () => {
+    const now = localDay(2024, 6, 1)
+    const view = aggregateHistory({
+      sessions: [
+        session('small', now, {
+          tokenUsage: tokens({ outputTokens: 10 }),
+          model: { provider: 'alpha', model: 'chat' },
+        }),
+        session('large', now - DAY, {
+          tokenUsage: tokens({ uncachedInputTokens: 1_000_000 }),
+          model: { provider: 'alpha', model: 'chat' },
+        }),
+        session('empty', now),
+      ],
+      range: 'all',
+      now,
+      pricing: priced,
+    })
+    // The unmeasured conversation gets no row; the rest are ordered by tokens.
+    expect(view.sessions.map(row => row.id)).toEqual(['large', 'small'])
+    expect(view.sessions[0]).toMatchObject({
+      title: 'large',
+      kind: 'root',
+      totalTokens: 1_000_000,
+      cacheRate: 0,
+      costBasis: 'range',
+    })
+    expect(view.sessions[1]?.totalTokens).toBe(10)
+    expect(view.sessions[1]?.cost?.amountMicros).toBe(40)
+    expect(view.sessions[0]?.cost?.amountMicros).toBe(1_000_000)
   })
 
   it('splits root conversations from delegated subagents', () => {

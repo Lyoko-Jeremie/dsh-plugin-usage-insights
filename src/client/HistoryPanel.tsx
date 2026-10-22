@@ -125,6 +125,47 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
               />
             </div>
           </Section>
+          {view.sessions.length > 0 && (
+            <details className="dsu-steps-details">
+              <summary className="dsu-steps-summary">
+                <span className="dsu-chevron" aria-hidden="true" />
+                <span className="dsu-section-title">{t('section.sessions')}</span>
+                <span className="dsu-steps-meta">{t('sessions.count', { n: view.sessions.length })}</span>
+              </summary>
+              <div className="dsu-steps-body">
+                <div className="dsu-steps-wrap">
+                  <table className="dsu-steps">
+                    <thead>
+                      <tr>
+                        <th>{t('sessions.title')}</th>
+                        <th>{t('sessions.kind')}</th>
+                        <th className="dsu-num">{t('sessions.tokens')}</th>
+                        <th className="dsu-num">{t('sessions.cache')}</th>
+                        <th className="dsu-num">{t('sessions.cost')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {view.sessions.map(row => (
+                        <tr key={row.id}>
+                          <td className="dsu-session-title" title={row.title}>{row.title}</td>
+                          <td>{row.kind === 'subagent' ? t('sessions.subagent') : t('sessions.root')}</td>
+                          <td className="dsu-num">{formatTokens(row.totalTokens)}</td>
+                          <td className="dsu-num">
+                            {row.cacheRate === null ? '—' : formatPercent(row.cacheRate)}
+                          </td>
+                          <td className="dsu-num">
+                            {row.cost === null
+                              ? '—'
+                              : formatMoneyRange(row.cost.amountMicros, row.cost.amountMicrosMax, row.cost.currency)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+          )}
           {view.bandShare !== null && (
             <Section title={t('section.bands')}>
               <div className="dsu-rows">

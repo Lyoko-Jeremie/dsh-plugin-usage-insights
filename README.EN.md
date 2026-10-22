@@ -64,6 +64,8 @@ The plugin adds two right-Sidebar pages.
   cache-hit rate, cost.
 - **By agent**: root conversations and subagents each list their conversation count, tokens,
   their own cache-hit rate, and cost.
+- **Session detail** (collapsed by default): one row per conversation with its title, root or
+  subagent kind, token total, cache-hit rate and cost, ordered by tokens.
 - **Peak / off-peak share**: by tokens and by requests, counting only conversations that
   carry a band rollup and saying so when some do not.
 - Daily token chart: bars stack the peak (amber) and off-peak (green) tokens with a legend.

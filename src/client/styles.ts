@@ -818,6 +818,12 @@ export const css = `
   white-space: nowrap;
 }
 
+.dsu-session-title {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .dsu-steps-body {
   display: flex;
   flex-direction: column;

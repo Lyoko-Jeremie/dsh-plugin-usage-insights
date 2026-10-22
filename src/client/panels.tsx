@@ -350,6 +350,7 @@ function toHistoryInput(summary: SessionSummaryLike): HistorySessionInput {
   const bands = readBands(summary.projectionValues?.usageBands)
   return {
     id: summary.id,
+    ...(summary.displayTitle === undefined ? {} : { title: summary.displayTitle }),
     updatedAt: summary.updatedAt,
     ...(tokenUsage === undefined ? {} : { tokenUsage }),
     ...(bands === undefined ? {} : { bands }),

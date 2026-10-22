@@ -13,7 +13,7 @@
  */
 import type {
   AgentTotals, BandModelView, BandDayView, CostBasis, CostView, DayTotal, HistoryRange,
-  HistorySessionInput, HistoryView, PricingTable, TokenBuckets, UsageBandsView,
+  HistorySessionInput, HistorySessionRow, HistoryView, PricingTable, TokenBuckets, UsageBandsView,
 } from '../client/contract.ts'
 import { beijingDay } from '../shared/band.js'
 import { addBandEntry, emptyBandShare } from './band-share.ts'
@@ -63,6 +63,7 @@ export function aggregateHistory(input: {
   let bandSharePartial = false
   const root = createAccumulator()
   const subagent = createAccumulator()
+  const sessions: HistorySessionRow[] = []
   let measuredCount = 0
   let fallbackCount = 0
   let cost: CostView | null = null
@@ -88,6 +89,9 @@ export function aggregateHistory(input: {
         addBandDay(dayTotals, day)
       }
       const priced = priceBands(input.pricing, bands)
+      const sessionBuckets = emptyBuckets()
+      addBands(sessionBuckets, bands)
+      sessions.push(sessionRow(session, sessionBuckets, priced?.cost ?? null, priced === null ? 'none' : 'bands'))
       if (priced === null) {
         sawUnpriced = true
         kind.sawUnpriced = true
@@ -111,6 +115,7 @@ export function aggregateHistory(input: {
     addBuckets(kind, usage)
     addDay(dayTotals, session.updatedAt, usage)
     const sessionCost = priceBuckets(input.pricing, session.model, usage)
+    sessions.push(sessionRow(session, usage, sessionCost, sessionCost === null ? 'none' : 'range'))
     if (sessionCost === null) {
       sawUnpriced = true
       kind.sawUnpriced = true
@@ -139,6 +144,8 @@ export function aggregateHistory(input: {
     cost,
     costBasis: basisOf(cost, sawBands, sawFallback),
     agents: { root: finalize(root), subagent: finalize(subagent) },
+    sessions: sessions.sort((left, right) =>
+      right.totalTokens - left.totalTokens || left.title.localeCompare(right.title)),
     bandShare: bandShareSeen ? bandShare : null,
     bandSharePartial,
   }
@@ -152,6 +159,48 @@ interface KindAccumulator extends TokenBuckets {
   sawUnpriced: boolean
   sawBands: boolean
   sawFallback: boolean
+}
+
+/**
+ * Build one conversation's row for the per-session table.
+ *
+ * @param session - the source conversation.
+ * @param buckets - its token counters.
+ * @param cost - priced amount, or null when no route could be priced.
+ * @param costBasis - how the amount was derived.
+ * @returns the table row.
+ */
+function sessionRow(
+  session: HistorySessionInput,
+  buckets: TokenBuckets,
+  cost: CostView | null,
+  costBasis: CostBasis,
+): HistorySessionRow {
+  const billed = buckets.uncachedInputTokens + buckets.cacheReadTokens + buckets.cacheWriteTokens
+  return {
+    id: session.id,
+    title: session.title !== undefined && session.title.length > 0 ? session.title : session.id,
+    kind: session.kind === 'subagent' ? 'subagent' : 'root',
+    updatedAt: session.updatedAt,
+    totalTokens: sumBuckets(buckets),
+    cacheRate: billed > 0 ? buckets.cacheReadTokens / billed : null,
+    cost,
+    costBasis,
+  }
+}
+
+/**
+ * Create zeroed token buckets.
+ *
+ * @returns a fresh bucket object.
+ */
+function emptyBuckets(): TokenBuckets {
+  return {
+    uncachedInputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+  }
 }
 
 /**

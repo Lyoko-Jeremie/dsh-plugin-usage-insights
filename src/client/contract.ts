@@ -267,6 +267,20 @@ export interface AgentTotals {
   costBasis: CostBasis
 }
 
+/** One conversation's row in the per-session history table. */
+export interface HistorySessionRow {
+  id: string
+  /** Display title, falling back to the id. */
+  title: string
+  kind: AgentKind
+  /** Last durable activity. */
+  updatedAt: number
+  totalTokens: number
+  cacheRate: number | null
+  cost: CostView | null
+  costBasis: CostBasis
+}
+
 /** Everything the cross-conversation panel renders. */
 export interface HistoryView {
   range: HistoryRange
@@ -290,6 +304,8 @@ export interface HistoryView {
   costBasis: CostBasis
   /** Per-kind split of the same range. */
   agents: { root: AgentTotals; subagent: AgentTotals }
+  /** One row per measured conversation, largest token total first. */
+  sessions: HistorySessionRow[]
   /** Peak/off-peak split of the conversations that carry a band rollup. */
   bandShare: BandShareView | null
   /** True when some conversations had no band rollup and are outside `bandShare`. */
@@ -299,6 +315,8 @@ export interface HistoryView {
 /** One conversation row fed into the cross-conversation aggregation. */
 export interface HistorySessionInput {
   id: string
+  /** Display title; the row falls back to the id when absent. */
+  title?: string
   /** Last durable activity; the fallback day when the conversation has no band rollup. */
   updatedAt: number
   tokenUsage?: TokenBuckets
