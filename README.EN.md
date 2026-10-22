@@ -36,7 +36,7 @@ The plugin adds two right-Sidebar pages.
 - **Agent identity and subagent detail**: the header says whether the conversation is a root
   agent or a subagent; a subagent shows its parent conversation, and a root agent shows its
   direct subagents' count, total tokens, and cost, expandable into one row per subagent
-  (requests, tokens, cache-hit rate, cost, largest first).
+  (requests, tokens, cache-hit rate, cost, numbered in creation order).
 - Opening a root conversation's usage page reads the missing band rollups of its subagents
   once (at most 20), turning their figures from an amount range into exact per-band cost.
 
@@ -143,6 +143,10 @@ uses those fields to distinguish:
 - **Root agent**: the root conversation; its panel shows the direct subagents' count, tokens,
   and cost, expandable into a per-subagent table (number, name, requests, tokens, cache hit,
   cost). The request ledger reuses those numbers to label which subagent ran each request.
+- **Subagent numbers** come from the parent's own `subagent/catalog` creation records and are
+  assigned in creation order. Delegating again appends new numbers and leaves the existing
+  ones alone, and a subagent's token growth never reorders the table. A subagent that leaves
+  the session list keeps its row, so no other child can take over its number.
 - **Subagent**: shows a subagent badge and the parent conversation's title; its usage also
   counts toward the history page's subagent row.
 - **History page**: the conversation count splits into root/subagent, and each kind lists its

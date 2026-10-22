@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Readers for the projection wire values this plugin consumes.
  *
  * A slot component receives projection values as untyped framework data: the
@@ -8,7 +8,7 @@
  * dropped slot entry would blank the whole tab.
  */
 import type {
-  BandDayView, BandModelView, BreakdownView, ModelRef, TokenBuckets, UsageBandsView, UsageStepView,
+  BandDayView, BandModelView, BreakdownView, CatalogChildEntry, ModelRef, TokenBuckets, UsageBandsView, UsageStepView,
 } from './contract.ts'
 
 /** Projection value of the token meter's cumulative usage unit. */
@@ -115,6 +115,23 @@ export function readSteps(value: unknown): {
     totalSteps: count(value.totalSteps) ?? steps.length,
     omittedSteps: count(value.omittedSteps) ?? 0,
   }
+}
+
+/** Projection value of the parent conversation's direct-child catalog. */
+export function readSubagentCatalog(value: unknown): CatalogChildEntry[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const entries: CatalogChildEntry[] = []
+  for (const raw of value) {
+    if (!isRecord(raw) || typeof raw.id !== 'string' || raw.id.length === 0) continue
+    // External executions have no local child conversation to report usage for.
+    if (raw.mode === 'external') continue
+    entries.push({
+      id: raw.id,
+      createdAt: count(raw.createdAt) ?? Number.MAX_SAFE_INTEGER,
+      label: typeof raw.label === 'string' ? raw.label : '',
+    })
+  }
+  return entries
 }
 
 /** Projection value of the Host's per-day, per-band rollup. */

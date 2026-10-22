@@ -10,7 +10,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PRICING } from './config.ts'
 import type { CostView, HistoryRange, HistorySessionInput, SessionIdentity } from './contract.ts'
 import { aggregateHistory } from '../lib/aggregate.ts'
-import { summarizeChildAgents } from '../lib/agents.ts'
+import { collectChildAgents, summarizeChildAgents } from '../lib/agents.ts'
+import type { ChildAgentInput } from '../lib/agents.ts'
 import { mergeCosts } from '../lib/pricing.ts'
 import { mergeStepActivity } from '../lib/steps.ts'
 import type { NumberedStepActivity } from '../lib/steps.ts'
@@ -19,7 +20,8 @@ import { HistoryPanel } from './HistoryPanel.tsx'
 import { SessionPanel } from './SessionPanel.tsx'
 import type { SessionListSnapshot, SessionScopedProps, SessionSummaryLike } from './runtime.ts'
 import {
-  readBands, readBreakdown, readContextPressure, readModelSelection, readSessionStats, readSteps, readTokenUsage,
+  readBands, readBreakdown, readContextPressure, readModelSelection, readSessionStats, readSteps,
+  readSubagentCatalog, readTokenUsage,
 } from './readers.ts'
 
 /** How many projection reads the backfill keeps in flight. */
@@ -175,25 +177,32 @@ function buildIdentity(sessionId: string, list: SessionListSnapshot): SessionIde
       ...(parent?.displayTitle === undefined ? {} : { parentTitle: parent.displayTitle }),
     }
   }
-  const children = list.ids
-    .map(id => list.byId[id])
-    .filter((child): child is SessionSummaryLike => child !== undefined && child.parentId === sessionId)
-    .map(child => ({
+  // The parent's own catalog is the authoritative child list: it keeps every
+  // direct child, in creation order, after that child's row leaves the session
+  // list. List rows fill in usage and cover parents whose catalog the projection
+  // did not retain; `origin` keeps a forked conversation out of the table.
+  const catalog = readSubagentCatalog(summary?.projectionValues?.subagentCatalog) ?? []
+  const rows: ChildAgentInput[] = []
+  for (const child of Object.values(list.byId)) {
+    if (child.id === sessionId || child.parentId !== sessionId || child.origin !== 'subagent') continue
+    rows.push({
       id: child.id,
-      title: child.displayTitle ?? child.id,
+      title: child.displayTitle ?? '',
       running: child.running === true,
       updatedAt: child.updatedAt,
       tokenUsage: readTokenUsage(child.projectionValues?.tokenUsage),
       bands: readBands(child.projectionValues?.usageBands),
       steps: readSessionStats(child.projectionValues?.sessionStats)?.steps,
       model: readModelSelection(child.projectionValues?.modelSelection)?.next ?? null,
-    }))
+    })
+  }
+  const children = collectChildAgents(catalog, rows)
   if (children.length === 0) return { kind: 'root' }
-  const rows = summarizeChildAgents(children, PRICING)
+  const agents = summarizeChildAgents(children, PRICING)
   let cost: CostView | null = null
   let exact = true
   let priced = false
-  for (const row of rows) {
+  for (const row of agents) {
     if (row.cost === null) continue
     priced = true
     exact = exact && row.costBasis === 'bands'
@@ -202,11 +211,11 @@ function buildIdentity(sessionId: string, list: SessionListSnapshot): SessionIde
   return {
     kind: 'root',
     children: {
-      count: rows.length,
-      totalTokens: rows.reduce((total, row) => total + row.totalTokens, 0),
+      count: agents.length,
+      totalTokens: agents.reduce((total, row) => total + row.totalTokens, 0),
       cost,
       costBasis: cost === null ? 'none' : exact ? 'bands' : 'range',
-      list: rows,
+      list: agents,
     },
   }
 }

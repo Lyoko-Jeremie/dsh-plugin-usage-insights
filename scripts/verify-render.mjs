@@ -85,7 +85,16 @@ const list = {
     s1: {
       id: 's1', displayTitle: 'Root conversation',
       updatedAt: Date.now() - 2 * 86_400_000,
-      projectionValues: { tokenUsage: populated.tokenUsage, usageBands: populated.usageBands },
+      projectionValues: {
+        tokenUsage: populated.tokenUsage,
+        usageBands: populated.usageBands,
+        // The parent's own catalog, in creation order, also lists a child whose
+        // row is not part of the session list.
+        subagentCatalog: [
+          { id: 's2', createdAt: 1, mode: 'continuable', label: 'Delegated work' },
+          { id: 's4', createdAt: 2, mode: 'one-shot', label: 'Second child' },
+        ],
+      },
     },
     s2: {
       id: 's2', displayTitle: 'Delegated work', parentId: 's1', origin: 'subagent',
@@ -100,13 +109,20 @@ const list = {
       },
     },
     s3: { id: 's3', displayTitle: 'Another conversation', updatedAt: Date.now(), projectionValues: {} },
+    s4: {
+      id: 's4', displayTitle: 'Second child', parentId: 's1', origin: 'subagent',
+      updatedAt: Date.now() - 3600_000,
+      projectionValues: {
+        tokenUsage: { uncachedInputTokens: 200, outputTokens: 100, cacheReadTokens: 1000, cacheWriteTokens: 0 },
+      },
+    },
   },
 }
 
 const cases = [
   ['session: root', session, propsFor(populated, list),
     ['154k', '34%', '66%', '48k', '[section.steps]', '1M', '[steps.peak]', '[agent.root]',
-      '[agent.children]', '[section.subagents]', '[agents.child]', '[steps.agent]', '#1',
+      '[agent.children]', '[section.subagents]', '[agents.child]', '[steps.agent]', '#1', '#2',
       '[label.bandShare]', '[label.bandShare.short]', 'dsu-ring--band']],
   ['session: subagent', session, propsFor(populated, list, 's2'),
     ['[agent.subagent]', '[agent.parent]']],

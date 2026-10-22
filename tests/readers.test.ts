@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  readBreakdown, readContextPressure, readModelSelection, readSessionStats, readTokenUsage,
+  readBreakdown, readContextPressure, readModelSelection, readSessionStats, readSubagentCatalog,
+  readTokenUsage,
 } from '../src/client/readers.ts'
 
 describe('readTokenUsage', () => {
@@ -69,5 +70,36 @@ describe('readModelSelection', () => {
     expect(readModelSelection({ lastUsed: null, next: null })).toEqual({ lastUsed: null, next: null })
     expect(readModelSelection({})).toEqual({ lastUsed: null, next: null })
     expect(readModelSelection({ next: { provider: '', model: 'x' } })?.next).toBeNull()
+  })
+})
+
+describe('readSubagentCatalog', () => {
+  it('keeps the catalog entries in creation order with their labels', () => {
+    expect(readSubagentCatalog([
+      { id: 'a', createdAt: 20, mode: 'continuable', label: 'worker' },
+      { id: 'b', createdAt: 10, mode: 'one-shot' },
+    ])).toEqual([
+      { id: 'a', createdAt: 20, label: 'worker' },
+      { id: 'b', createdAt: 10, label: '' },
+    ])
+  })
+
+  it('skips external executions and malformed entries', () => {
+    expect(readSubagentCatalog([
+      { id: 'ext', createdAt: 1, mode: 'external', label: 'remote' },
+      { createdAt: 2, mode: 'one-shot' },
+      null,
+      { id: 'kept', createdAt: 3, mode: 'one-shot' },
+    ])).toEqual([{ id: 'kept', createdAt: 3, label: '' }])
+  })
+
+  it('sorts an entry without a creation time after the timestamped ones', () => {
+    const entries = readSubagentCatalog([{ id: 'missing', mode: 'one-shot' }])
+    expect(entries?.[0]?.createdAt).toBe(Number.MAX_SAFE_INTEGER)
+  })
+
+  it('is undefined without an array value', () => {
+    expect(readSubagentCatalog(undefined)).toBeUndefined()
+    expect(readSubagentCatalog({})).toBeUndefined()
   })
 })

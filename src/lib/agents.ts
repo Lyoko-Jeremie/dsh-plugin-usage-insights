@@ -8,7 +8,7 @@
  * only cumulative counters exist.
  */
 import type {
-  ChildAgentView, CostBasis, CostView, ModelRef, PricingTable, TokenBuckets, UsageBandsView,
+  CatalogChildEntry, ChildAgentView, CostBasis, CostView, ModelRef, PricingTable, TokenBuckets, UsageBandsView,
 } from '../client/contract.ts'
 import { mergeCosts, priceBuckets, priceBucketsInBand } from './pricing.ts'
 
@@ -19,6 +19,12 @@ export interface ChildAgentInput {
   title: string
   running: boolean
   updatedAt: number
+  /**
+   * Creation time from the parent's subagent catalog. Every catalogued child
+   * carries it; a row recovered from a list without a catalog omits it and
+   * sorts after the catalogued children.
+   */
+  createdAt?: number
   tokenUsage?: TokenBuckets
   bands?: UsageBandsView
   /** Whole-log step count; the request count when no band rollup exists. */
@@ -27,21 +33,82 @@ export interface ChildAgentInput {
 }
 
 /**
+ * Order the parent's direct children by creation sequence.
+ *
+ * The catalog is the parent's own creation record, so it survives a child
+ * leaving the session list. Rows the catalog does not list (an older parent, or
+ * a catalog the projection did not retain) keep their id order after the
+ * catalogued children.
+ *
+ * @param catalog - direct children the parent recorded, in creation order.
+ * @param rows - child rows the session list publishes, in any order.
+ * @returns every direct child once, in a stable creation order.
+ */
+export function collectChildAgents(
+  catalog: readonly CatalogChildEntry[],
+  rows: readonly ChildAgentInput[],
+): ChildAgentInput[] {
+  const listed = new Map(rows.map(row => [row.id, row]))
+  const collected: ChildAgentInput[] = []
+  const seen = new Set<string>()
+  for (const entry of catalog) {
+    if (seen.has(entry.id)) continue
+    seen.add(entry.id)
+    const row = listed.get(entry.id)
+    collected.push(row === undefined
+      ? {
+        id: entry.id,
+        title: entry.label,
+        running: false,
+        updatedAt: 0,
+        createdAt: entry.createdAt,
+        model: null,
+      }
+      : {
+        ...row,
+        title: row.title.length > 0 ? row.title : entry.label,
+        createdAt: entry.createdAt,
+      })
+  }
+  for (const row of rows) {
+    if (seen.has(row.id)) continue
+    seen.add(row.id)
+    collected.push(row)
+  }
+  return collected
+}
+
+/**
  * Summarize direct child conversations.
+ *
+ * Children are numbered and ordered by creation sequence, not by spend: a
+ * number identifies one child for its whole life, so later delegation appends
+ * new numbers instead of renumbering the children that already ran.
  *
  * @param inputs - child conversations and their projections.
  * @param pricing - plugin price table.
- * @returns one row per child, largest token total first.
+ * @returns one row per child, creation order.
  */
 export function summarizeChildAgents(
   inputs: readonly ChildAgentInput[],
   pricing: PricingTable,
 ): ChildAgentView[] {
-  const rows = inputs.map(input => summarize(input, pricing))
-  rows.sort((left, right) =>
-    right.totalTokens - left.totalTokens
-    || left.title.localeCompare(right.title))
-  return rows.map((row, position) => ({ ...row, index: position + 1 }))
+  return orderByCreation(inputs).map((input, position) => ({
+    ...summarize(input, pricing),
+    index: position + 1,
+  }))
+}
+
+/**
+ * Sort children into creation order.
+ *
+ * @param inputs - child conversations.
+ * @returns a new array, catalogued children first.
+ */
+function orderByCreation(inputs: readonly ChildAgentInput[]): ChildAgentInput[] {
+  return [...inputs].sort((left, right) =>
+    (left.createdAt ?? Number.MAX_SAFE_INTEGER) - (right.createdAt ?? Number.MAX_SAFE_INTEGER)
+    || left.id.localeCompare(right.id))
 }
 
 /**

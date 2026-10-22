@@ -293,11 +293,30 @@ export interface HistorySessionInput {
   kind?: AgentKind
 }
 
+/**
+ * One direct child recorded by the root conversation's own subagent catalog.
+ *
+ * The catalog is the parent's durable creation record: it survives the child
+ * leaving the session list and keeps the children in creation order.
+ */
+export interface CatalogChildEntry {
+  /** Child conversation identity. */
+  id: string
+  /** Child conversation creation time; orders the catalog. */
+  createdAt: number
+  /** Creation label frozen with the child; empty when its mode carries none. */
+  label: string
+}
+
 /** One direct child conversation of the root agent. */
 export interface ChildAgentView {
   id: string
   title: string
-  /** 1-based rank in the table (largest token total first), used in the request rows. */
+  /**
+   * 1-based creation order across the root's direct children, used in the
+   * request rows. A child keeps its number for its whole life: delegation after
+   * it appends new numbers instead of renumbering the existing children.
+   */
   index: number
   /** Whether the child currently runs a turn. */
   running: boolean
@@ -318,11 +337,12 @@ export interface SessionIdentity {
   parentTitle?: string
   /** Direct child conversations, for a root conversation. */
   children?: {
+    /** Direct children the parent catalogued; delegation increments it. */
     count: number
     totalTokens: number
     cost: CostView | null
     costBasis: CostBasis
-    /** Newest activity first. */
+    /** Creation order. */
     list: readonly ChildAgentView[]
   }
 }

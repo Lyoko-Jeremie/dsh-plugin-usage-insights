@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { BandModelView, PricingTable, UsageBandsView } from '../src/client/contract.ts'
-import { summarizeChildAgents } from '../src/lib/agents.ts'
+import { collectChildAgents, summarizeChildAgents } from '../src/lib/agents.ts'
+import type { ChildAgentInput } from '../src/lib/agents.ts'
 
 /** DeepSeek flash rates: peak 2/0.04/8, off-peak half. */
 const pricing: PricingTable = {
@@ -30,19 +31,18 @@ function entry(requests: number, uncachedInputTokens: number, cacheReadTokens = 
 }
 
 /** One child conversation with a band rollup. */
-function bandChild(id: string, title: string, totalTokens: number): {
-  id: string
-  title: string
-  running: boolean
-  updatedAt: number
-  bands: UsageBandsView
-  model: { provider: string; model: string } | null
-} {
+function bandChild(
+  id: string,
+  title: string,
+  totalTokens: number,
+  createdAt?: number,
+): ChildAgentInput & { bands: UsageBandsView } {
   return {
     id,
     title,
     running: false,
     updatedAt: 1,
+    ...(createdAt === undefined ? {} : { createdAt }),
     model: { provider: 'deepseek', model: 'deepseek-flash' },
     bands: {
       days: [],
@@ -53,7 +53,7 @@ function bandChild(id: string, title: string, totalTokens: number): {
 
 describe('summarizeChildAgents', () => {
   it('prices a child exactly from its band rollup', () => {
-    const rows = summarizeChildAgents([bandChild('a', 'Delegated A', 1_000_000)], pricing)
+    const rows = summarizeChildAgents([bandChild('a', 'Delegated A', 1_000_000, 10)], pricing)
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
       id: 'a',
@@ -66,13 +66,35 @@ describe('summarizeChildAgents', () => {
     expect(rows[0]?.cost?.amountMicrosMax).toBeUndefined()
   })
 
-  it('sorts rows by token total, largest first', () => {
+  it('numbers children in creation order instead of spend order', () => {
     const rows = summarizeChildAgents([
-      bandChild('small', 'Small', 1_000_000),
-      bandChild('big', 'Big', 3_000_000),
+      bandChild('first', 'First', 1_000_000, 10),
+      bandChild('second', 'Second', 3_000_000, 20),
+      bandChild('third', 'Third', 2_000_000, 30),
     ], pricing)
-    expect(rows.map(row => row.id)).toEqual(['big', 'small'])
-    // The table number follows the token order and labels that child's requests.
+    expect(rows.map(row => row.id)).toEqual(['first', 'second', 'third'])
+    expect(rows.map(row => row.index)).toEqual([1, 2, 3])
+  })
+
+  it('keeps a child number when its spend changes', () => {
+    const before = summarizeChildAgents([
+      bandChild('first', 'First', 1_000_000, 10),
+      bandChild('second', 'Second', 5_000_000, 20),
+    ], pricing)
+    const after = summarizeChildAgents([
+      bandChild('first', 'First', 9_000_000, 10),
+      bandChild('second', 'Second', 5_000_000, 20),
+    ], pricing)
+    expect(after.map(row => row.id)).toEqual(before.map(row => row.id))
+    expect(after.map(row => row.index)).toEqual(before.map(row => row.index))
+  })
+
+  it('appends children without a catalog record after the catalogued ones', () => {
+    const rows = summarizeChildAgents([
+      bandChild('uncatalogued', 'Uncatalogued', 1_000_000),
+      bandChild('catalogued', 'Catalogued', 2_000, 10),
+    ], pricing)
+    expect(rows.map(row => row.id)).toEqual(['catalogued', 'uncatalogued'])
     expect(rows.map(row => row.index)).toEqual([1, 2])
   })
 
@@ -134,5 +156,52 @@ describe('summarizeChildAgents', () => {
     }], pricing)
     expect(rows[0]?.cacheRate).toBe(1)
     expect(rows[0]?.totalTokens).toBe(1_000)
+  })
+})
+
+describe('collectChildAgents', () => {
+  it('orders the catalog by creation and fills in list rows by id', () => {
+    const collected = collectChildAgents(
+      [
+        { id: 'a', createdAt: 10, label: 'Catalogued A' },
+        { id: 'b', createdAt: 20, label: '' },
+      ],
+      [bandChild('b', 'Listed B', 1), bandChild('a', '', 2)],
+    )
+    expect(collected.map(row => row.id)).toEqual(['a', 'b'])
+    expect(collected.map(row => row.createdAt)).toEqual([10, 20])
+    // A listed title wins; an empty one falls back to the catalog label.
+    expect(collected[0]?.title).toBe('Catalogued A')
+    expect(collected[1]?.title).toBe('Listed B')
+  })
+
+  it('keeps a catalogued child that has no list row', () => {
+    const collected = collectChildAgents([{ id: 'gone', createdAt: 10, label: 'Left the list' }], [])
+    expect(collected).toEqual([{
+      id: 'gone',
+      title: 'Left the list',
+      running: false,
+      updatedAt: 0,
+      createdAt: 10,
+      model: null,
+    }])
+  })
+
+  it('appends a row the catalog does not list and counts it once', () => {
+    const collected = collectChildAgents(
+      [{ id: 'a', createdAt: 10, label: 'A' }],
+      [bandChild('a', 'A', 1), bandChild('orphan', 'Orphan', 2)],
+    )
+    expect(collected.map(row => row.id)).toEqual(['a', 'orphan'])
+    expect(collected[1]?.createdAt).toBeUndefined()
+  })
+
+  it('does not duplicate a child catalogued twice', () => {
+    const collected = collectChildAgents(
+      [{ id: 'a', createdAt: 10, label: 'A' }, { id: 'a', createdAt: 11, label: 'A again' }],
+      [bandChild('a', 'A', 1)],
+    )
+    expect(collected).toHaveLength(1)
+    expect(collected[0]?.createdAt).toBe(10)
   })
 })
