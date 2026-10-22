@@ -1,6 +1,6 @@
 # dsh-usage-insights
 
-English | [绠€浣撲腑鏂嘳(README.md)
+English | [简体中文](README.md)
 
 Token usage, context occupancy, session metrics, and cross-conversation totals in the
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web right sidebar.
@@ -29,7 +29,7 @@ The plugin adds two right-Sidebar pages.
   request ledger show exact grouped integers (for example `275,123,456`); the header total,
   context window and usage history also use compact units, with the exact value on hover.
 - **Context window**: the first row shows used / capacity and the occupancy percentage; the
-  second row is a bar filled to that occupancy; the third row combines both 鈥?its width is the
+  second row is a bar filled to that occupancy; the third row combines both — its width is the
   occupancy and its three-colour fill is the composition; the fourth row is the whole-window
   composition bar, followed by a colour legend with each part's figure. When the Host can read
   the automatic-compaction threshold, the first two bars carry an amber marker and the first row
@@ -65,7 +65,8 @@ The plugin adds two right-Sidebar pages.
 - **By agent**: root conversations and subagents each list their conversation count, tokens,
   their own cache-hit rate, and cost.
 - **Session detail** (collapsed by default): one row per conversation with its title, root or
-  subagent kind, exact grouped token total, cache-hit rate and cost (six decimals at micro precision, so the column aligns), ordered by tokens.
+  subagent kind, exact grouped token total, cache-hit rate and cost (six decimals at micro
+  precision, so the column aligns), ordered by tokens.
 - **Peak / off-peak share**: by tokens and by requests, counting only conversations that
   carry a band rollup and saying so when some do not.
 - Daily token chart: bars stack the peak (amber) and off-peak (green) tokens with a legend.
@@ -175,7 +176,7 @@ Boundaries:
   ordinary subagents (`origin: subagent`, parent = the Lead) and carry no team field, so they
   cannot be reliably separated at the session level.
 - **Request-level sources (compaction, title, planning) are not counted.** Reasonix classifies
-  every request by purpose (executor / subagent / planner / compaction / title / 鈥?. DSH's
+  every request by purpose (executor / subagent / planner / compaction / title / …). DSH's
   session log has no such label, and `compaction-basic`'s summarization call plus the
   `session-title-*-llm` generation call never write `assistant/message` events, so this
   plugin's projections cannot see that spend. Matching Reasonix's granularity requires the
@@ -211,7 +212,7 @@ export const PRICING: PricingTable = {
 npm run build   # regenerates dist/client.js
 ```
 
-The formula follows Reasonix: `amount = 危 tokens 脳 ratePerMillion`, with each bucket rounded
+The formula follows Reasonix: `amount = Σ tokens × ratePerMillion`, with each bucket rounded
 to whole micro-units before summing so sums never drift. A single-band table yields one
 amount. A two-band table yields an amount range when per-request data is missing (every token
 off-peak as the lower bound, at peak as the upper); with per-request data it prices each
@@ -277,15 +278,16 @@ disabled if you do not want the network dependency.
 
 ```
 Host (index.js)
-鈹溾攢鈹€ usageSteps projection: folds step/start + assistant/message + assistant/attempt
-鈹?    鈫?latest 200 requests (time, turn, model, four buckets, band)
-鈹斺攢鈹€ usageBands projection: per-day, per-band, per-model rollup
-        鈹? Harness projection cache checkpoint (restored on reopen/restart)
-        鈻?Client (dist/client.js)
-鈹溾攢鈹€ Usage page: reads tokenUsage / contextPressure / contextBreakdown / sessionStats /
-鈹?              usageSteps / usageBands
-鈹溾攢鈹€ Usage history page: reads each conversation's usageBands from the session list
-鈹斺攢鈹€ Composer button: expands the right Sidebar and opens the usage page
+├── usageSteps projection: folds step/start + assistant/message + assistant/attempt
+│     → latest 200 requests (time, turn, model, four buckets, band)
+└── usageBands projection: per-day, per-band, per-model rollup
+        │  Harness projection cache checkpoint (restored on reopen/restart)
+        ▼
+Client (dist/client.js)
+├── Usage page: reads tokenUsage / contextPressure / contextBreakdown / sessionStats /
+│               usageSteps / usageBands
+├── Usage history page: reads each conversation's usageBands from the session list
+└── Composer button: expands the right Sidebar and opens the usage page
 ```
 
 - The Host half only folds projections and resolves the holiday calendar; it renders no UI.
