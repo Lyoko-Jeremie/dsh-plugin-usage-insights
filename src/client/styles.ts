@@ -444,7 +444,12 @@ export const css = `
   width: 2px;
   transform: translateX(-1px);
   border-radius: 1px;
-  background: var(--dsw-alias-state-warn-primary);
+  background: var(--dsw-alias-state-warn-label);
+}
+
+.dsu-ctx-threshold {
+  color: var(--dsw-alias-state-warn-label);
+  font-weight: 500;
 }
 
 .dsu-compose {

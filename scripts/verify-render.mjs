@@ -125,7 +125,7 @@ const cases = [
     ['154K', '34%', '66%', '48,210', '[section.steps]', '1,000,000', '[steps.peak]', '[agent.root]',
       '[agent.children]', '[section.subagents]', '[agents.child]', '[steps.agent]', '#1', '#2',
       '[label.bandShare.tokens]', '[label.bandShare.requests]', '[label.bandShare.short]', 'dsu-ring--band',
-      'dsu-compose', 'dsu-compose--progress', 'dsu-progress', 'dsu-progress-marker',
+      'dsu-compose', 'dsu-compose--progress', 'dsu-progress', 'dsu-progress-marker', 'dsu-ctx-threshold',
       '[context.compaction]', '[context.breakdown.system]',
       '[section.cacheHit]', '[cacheHit.total]', '[cacheHit.turn]', '[cacheHit.step]', 'dsu-hit', 'dsu-hit-fill',
       'dsu-hit-tick', 'dsu-hit-grid',

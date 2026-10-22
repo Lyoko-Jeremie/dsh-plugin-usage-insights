@@ -230,7 +230,12 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
                   <span className="dsu-ctx-pct">
                     {contextLabel}
                     {view.compactionThreshold !== null && (
-                      <> {' · '}{t('context.compaction')} {formatPercent(view.compactionThreshold)}</>
+                      <>
+                        {' · '}
+                        <span className="dsu-ctx-threshold">
+                          {t('context.compaction')} {formatPercent(view.compactionThreshold)}
+                        </span>
+                      </>
                     )}
                   </span>
                 </div>
