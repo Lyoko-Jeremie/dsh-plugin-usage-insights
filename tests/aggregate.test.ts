@@ -1,8 +1,20 @@
-﻿import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { HistorySessionInput, ModelRef, PricingTable, TokenBuckets } from '../src/client/contract.ts'
 import { aggregateHistory, dayKey, RANGE_DAYS } from '../src/lib/aggregate.ts'
 
 const DAY = 86_400_000
+
+/** Zeroed per-agent totals for expectations. */
+function zeroAgentTotals() {
+  return {
+    sessions: 0,
+    measured: 0,
+    totalTokens: 0,
+    cacheRate: null,
+    cost: null,
+    costBasis: 'none' as const,
+  }
+}
 
 /** Epoch milliseconds of a local calendar date, noon by default. */
 function localDay(year: number, month: number, day: number, hour = 12, minute = 0): number {
@@ -35,7 +47,12 @@ const pricedWithFallback: PricingTable = {
 function session(
   id: string,
   updatedAt: number,
-  options: { tokenUsage?: TokenBuckets; model?: ModelRef | null } = {},
+  options: {
+    tokenUsage?: TokenBuckets
+    model?: ModelRef | null
+    bands?: HistorySessionInput['bands']
+    kind?: HistorySessionInput['kind']
+  } = {},
 ): HistorySessionInput {
   const tokenUsage = options.tokenUsage
   return {
@@ -43,6 +60,8 @@ function session(
     updatedAt,
     model: options.model ?? null,
     ...(tokenUsage === undefined ? {} : { tokenUsage }),
+    ...(options.bands === undefined ? {} : { bands: options.bands }),
+    ...(options.kind === undefined ? {} : { kind: options.kind }),
   }
 }
 
@@ -94,6 +113,10 @@ describe('aggregateHistory', () => {
       days: [],
       cost: null,
       costBasis: 'none',
+      agents: {
+        root: zeroAgentTotals(),
+        subagent: zeroAgentTotals(),
+      },
     })
   })
 
@@ -301,5 +324,60 @@ describe('aggregateHistory', () => {
       totalTokens: 1_000_000,
       complete: true,
     })
+  })
+
+  it('splits root conversations from delegated subagents', () => {
+    const now = localDay(2024, 6, 1)
+    const sessions = [
+      session('root', now, {
+        tokenUsage: tokens({ uncachedInputTokens: 1_000_000 }),
+        model: { provider: 'alpha', model: 'chat' },
+      }),
+      session('sub', now, {
+        tokenUsage: tokens({ outputTokens: 1_000_000 }),
+        model: { provider: 'alpha', model: 'chat' },
+        kind: 'subagent',
+      }),
+      session('sub-empty', now, { kind: 'subagent' }),
+    ]
+    const view = aggregateHistory({ sessions, range: 'all', now, pricing: priced })
+    expect(view.agents.root).toMatchObject({
+      sessions: 1, measured: 1, totalTokens: 1_000_000, costBasis: 'range',
+    })
+    expect(view.agents.subagent).toMatchObject({
+      sessions: 2, measured: 1, totalTokens: 1_000_000, costBasis: 'range',
+    })
+    // The aggregate totals still count both kinds.
+    expect(view.totalTokens).toBe(2_000_000)
+    expect(view.sessionCount).toBe(3)
+    expect(view.agents.root.cost?.amountMicros).toBe(1_000_000)
+    expect(view.agents.subagent.cost?.amountMicros).toBe(4_000_000)
+  })
+
+  it('reports the exact basis per kind when only one kind has band rollups', () => {
+    const now = localDay(2024, 6, 1)
+    const bands = {
+      days: [],
+      total: {
+        peak: [{
+          provider: 'alpha', model: 'chat', requests: 1,
+          uncachedInputTokens: 1_000_000, cacheReadTokens: 0, cacheWriteTokens: 0,
+          outputTokens: 0, reasoningTokens: 0,
+        }],
+        offPeak: [],
+      },
+    }
+    const sessions = [
+      session('root', now, { bands: bands as never, model: { provider: 'alpha', model: 'chat' } }),
+      session('sub', now, {
+        tokenUsage: tokens({ outputTokens: 1_000_000 }),
+        model: { provider: 'alpha', model: 'chat' },
+        kind: 'subagent',
+      }),
+    ]
+    const view = aggregateHistory({ sessions, range: 'all', now, pricing: priced })
+    expect(view.costBasis).toBe('range')
+    expect(view.agents.root.costBasis).toBe('bands')
+    expect(view.agents.subagent.costBasis).toBe('range')
   })
 })

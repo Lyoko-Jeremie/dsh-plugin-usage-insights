@@ -217,6 +217,21 @@ export interface DayTotal {
 /** The range filter of the cross-conversation view. */
 export type HistoryRange = '7d' | '30d' | 'all'
 
+/** Which kind of agent a conversation is. */
+export type AgentKind = 'root' | 'subagent'
+
+/** Usage rolled up for one agent kind. */
+export interface AgentTotals {
+  /** Conversations of this kind in range. */
+  sessions: number
+  /** Conversations of this kind that carried usage. */
+  measured: number
+  totalTokens: number
+  cacheRate: number | null
+  cost: CostView | null
+  costBasis: CostBasis
+}
+
 /** Everything the cross-conversation panel renders. */
 export interface HistoryView {
   range: HistoryRange
@@ -238,6 +253,8 @@ export interface HistoryView {
   cost: CostView | null
   /** How `cost` and `days` were derived. */
   costBasis: CostBasis
+  /** Per-kind split of the same range. */
+  agents: { root: AgentTotals; subagent: AgentTotals }
 }
 
 /** One conversation row fed into the cross-conversation aggregation. */
@@ -250,6 +267,22 @@ export interface HistorySessionInput {
   model: ModelRef | null
   /** Per-day, per-band rollup when the Host projection is available. */
   bands?: UsageBandsView
+  /** Root conversation, or a delegated (subagent / team member) conversation. */
+  kind?: AgentKind
+}
+
+/** Identity of the conversation the single-conversation panel shows. */
+export interface SessionIdentity {
+  kind: AgentKind
+  /** Parent conversation title, for a subagent. */
+  parentTitle?: string
+  /** Direct child conversations, for a root conversation. */
+  children?: {
+    count: number
+    totalTokens: number
+    cost: CostView | null
+    costBasis: CostBasis
+  }
 }
 
 /** Props of the single-conversation panel body. */
@@ -258,6 +291,8 @@ export interface SessionPanelProps {
   t: Translate
   /** Whether this conversation currently runs a turn. */
   running: boolean
+  /** Whether this conversation is a root agent, and its direct children. */
+  identity: SessionIdentity
 }
 
 /** Load state of the missing-projection backfill. */

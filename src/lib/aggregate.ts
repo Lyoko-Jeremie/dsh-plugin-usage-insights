@@ -12,7 +12,7 @@
  * pass an estimate off as exact.
  */
 import type {
-  BandModelView, BandDayView, CostBasis, CostView, DayTotal, HistoryRange,
+  AgentTotals, BandModelView, BandDayView, CostBasis, CostView, DayTotal, HistoryRange,
   HistorySessionInput, HistoryView, PricingTable, TokenBuckets, UsageBandsView,
 } from '../client/contract.ts'
 import { beijingDay } from '../shared/band.js'
@@ -57,6 +57,8 @@ export function aggregateHistory(input: {
     cacheWriteTokens: 0,
   }
   const dayTotals = new Map<string, DayTotal>()
+  const root = createAccumulator()
+  const subagent = createAccumulator()
   let measuredCount = 0
   let fallbackCount = 0
   let cost: CostView | null = null
@@ -64,11 +66,16 @@ export function aggregateHistory(input: {
   let sawFallback = false
   let sawBands = false
   for (const session of inRange) {
+    const kind = session.kind === 'subagent' ? subagent : root
+    kind.sessions += 1
     const bands = session.bands
     if (bands !== undefined) {
       measuredCount += 1
+      kind.measured += 1
       sawBands = true
+      kind.sawBands = true
       addBands(buckets, bands)
+      addBands(kind, bands)
       for (const day of bands.days) {
         if (cutoffDay !== null && day.day < cutoffDay) continue
         addBandDay(dayTotals, day)
@@ -76,24 +83,32 @@ export function aggregateHistory(input: {
       const priced = priceBands(input.pricing, bands)
       if (priced === null) {
         sawUnpriced = true
+        kind.sawUnpriced = true
       } else {
         cost = cost === null ? priced.cost : mergeCosts(cost, priced.cost)
+        kind.cost = kind.cost === null ? priced.cost : mergeCosts(kind.cost, priced.cost)
         sawUnpriced = sawUnpriced || priced.unpriced
+        kind.sawUnpriced = kind.sawUnpriced || priced.unpriced
       }
       continue
     }
     const usage = session.tokenUsage
     if (usage === undefined) continue
     measuredCount += 1
+    kind.measured += 1
     fallbackCount += 1
     sawFallback = true
+    kind.sawFallback = true
     addBuckets(buckets, usage)
+    addBuckets(kind, usage)
     addDay(dayTotals, session.updatedAt, usage)
     const sessionCost = priceBuckets(input.pricing, session.model, usage)
     if (sessionCost === null) {
       sawUnpriced = true
+      kind.sawUnpriced = true
     } else {
       cost = cost === null ? sessionCost : mergeCosts(cost, sessionCost)
+      kind.cost = kind.cost === null ? sessionCost : mergeCosts(kind.cost, sessionCost)
     }
   }
   const billedInputTokens =
@@ -115,6 +130,57 @@ export function aggregateHistory(input: {
     days,
     cost,
     costBasis: basisOf(cost, sawBands, sawFallback),
+    agents: { root: finalize(root), subagent: finalize(subagent) },
+  }
+}
+
+/** Mutable per-kind accumulator behind {@link AgentTotals}. */
+interface KindAccumulator extends TokenBuckets {
+  sessions: number
+  measured: number
+  cost: CostView | null
+  sawUnpriced: boolean
+  sawBands: boolean
+  sawFallback: boolean
+}
+
+/**
+ * Create a zeroed per-kind accumulator.
+ *
+ * @returns the accumulator.
+ */
+function createAccumulator(): KindAccumulator {
+  return {
+    sessions: 0,
+    measured: 0,
+    cost: null,
+    sawUnpriced: false,
+    sawBands: false,
+    sawFallback: false,
+    uncachedInputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: 0,
+  }
+}
+
+/**
+ * Finish one kind's accumulator.
+ *
+ * @param kind - mutable accumulator.
+ * @returns the public totals.
+ */
+function finalize(kind: KindAccumulator): AgentTotals {
+  const billed =
+    kind.uncachedInputTokens + kind.cacheReadTokens + kind.cacheWriteTokens
+  const cost = kind.cost !== null && kind.sawUnpriced ? { ...kind.cost, complete: false } : kind.cost
+  return {
+    sessions: kind.sessions,
+    measured: kind.measured,
+    totalTokens: sumBuckets(kind),
+    cacheRate: billed > 0 ? kind.cacheReadTokens / billed : null,
+    cost,
+    costBasis: basisOf(cost, kind.sawBands, kind.sawFallback),
   }
 }
 

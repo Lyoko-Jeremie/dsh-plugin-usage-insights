@@ -72,6 +72,10 @@ export interface SessionsFace {
 export interface SessionSummaryLike {
   id: string
   updatedAt: number
+  /** Human-facing title the Host or catalog projects. */
+  displayTitle?: string
+  /** Parent conversation for a delegated (subagent or team member) Session. */
+  parentId?: string
   origin?: 'subagent'
   projectionValues?: Readonly<Record<string, unknown>>
 }

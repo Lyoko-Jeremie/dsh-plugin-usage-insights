@@ -8,12 +8,12 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PRICING } from './config.ts'
-import type { HistoryRange, HistorySessionInput } from './contract.ts'
+import type { HistoryRange, HistorySessionInput, SessionIdentity } from './contract.ts'
 import { aggregateHistory } from '../lib/aggregate.ts'
 import { deriveSessionUsage } from '../lib/usage.ts'
 import { HistoryPanel } from './HistoryPanel.tsx'
 import { SessionPanel } from './SessionPanel.tsx'
-import type { SessionScopedProps, SessionSummaryLike } from './runtime.ts'
+import type { SessionListSnapshot, SessionScopedProps, SessionSummaryLike } from './runtime.ts'
 import {
   readBands, readBreakdown, readContextPressure, readModelSelection, readSessionStats, readSteps, readTokenUsage,
 } from './readers.ts'
@@ -74,7 +74,55 @@ export function UsagePanelBody(props: SessionScopedProps) {
     pricing: PRICING,
   }), [tokenUsage, contextPressure, contextBreakdown, sessionStats, modelSelection, usageSteps, usageBands])
 
-  return <SessionPanel view={view} t={props.t} running={running === true} />
+  // Delegation identity comes from the session list, not from a projection: a
+  // Root and a delegated Session are told apart by the summary's `origin` and
+  // `parentId`, which every composition already publishes.
+  const list = props.useSessions(snapshot => snapshot)
+  const identity = useMemo(
+    () => buildIdentity(props.sessionId, list),
+    [props.sessionId, list],
+  )
+
+  return <SessionPanel view={view} t={props.t} running={running === true} identity={identity} />
+}
+
+/**
+ * Describe the conversation's place in the delegation tree.
+ *
+ * A subagent (including an Agent Teams teammate, which is spawned as a subagent
+ * child) reports its parent title. A root conversation reports its direct
+ * children's usage, priced through the same aggregation as the history page.
+ *
+ * @param sessionId - conversation the panel shows.
+ * @param list - current session-list snapshot.
+ * @returns the identity the panel header renders.
+ */
+function buildIdentity(sessionId: string, list: SessionListSnapshot): SessionIdentity {
+  const summary = list.byId[sessionId]
+  if (summary?.origin === 'subagent') {
+    const parent = summary.parentId === undefined ? undefined : list.byId[summary.parentId]
+    return {
+      kind: 'subagent',
+      ...(parent?.displayTitle === undefined ? {} : { parentTitle: parent.displayTitle }),
+    }
+  }
+  const childIds = list.ids.filter(id => list.byId[id]?.parentId === sessionId)
+  if (childIds.length === 0) return { kind: 'root' }
+  const children = childIds
+    .map(id => list.byId[id])
+    .filter((child): child is SessionSummaryLike => child !== undefined)
+    .map(child => toHistoryInput(child))
+  const view = aggregateHistory({ sessions: children, range: 'all', now: Date.now(), pricing: PRICING })
+  const totals = view.agents.subagent
+  return {
+    kind: 'root',
+    children: {
+      count: children.length,
+      totalTokens: totals.totalTokens,
+      cost: totals.cost,
+      costBasis: totals.costBasis,
+    },
+  }
 }
 
 /**
@@ -177,15 +225,25 @@ function historyRows(
   for (const id of ids) {
     const summary = byId[id]
     if (summary === undefined) continue
-    const tokenUsage = readTokenUsage(summary.projectionValues?.tokenUsage)
-    const bands = readBands(summary.projectionValues?.usageBands)
-    rows.push({
-      id,
-      updatedAt: summary.updatedAt,
-      ...(tokenUsage === undefined ? {} : { tokenUsage }),
-      ...(bands === undefined ? {} : { bands }),
-      model: readModelSelection(summary.projectionValues?.modelSelection)?.next ?? null,
-    })
+    rows.push(toHistoryInput(summary))
   }
   return rows
+}
+
+/**
+ * Project one session-list row into an aggregation input.
+ * @param summary - session-list row.
+ * @returns its usage values, route, and delegation kind.
+ */
+function toHistoryInput(summary: SessionSummaryLike): HistorySessionInput {
+  const tokenUsage = readTokenUsage(summary.projectionValues?.tokenUsage)
+  const bands = readBands(summary.projectionValues?.usageBands)
+  return {
+    id: summary.id,
+    updatedAt: summary.updatedAt,
+    ...(tokenUsage === undefined ? {} : { tokenUsage }),
+    ...(bands === undefined ? {} : { bands }),
+    model: readModelSelection(summary.projectionValues?.modelSelection)?.next ?? null,
+    kind: summary.origin === 'subagent' ? 'subagent' : 'root',
+  }
 }

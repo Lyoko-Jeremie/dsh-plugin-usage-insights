@@ -14,6 +14,13 @@ export const zh = {
   'section.metrics': '会话指标',
   'section.history': '用量汇总',
   'section.steps': '分步明细',
+  'section.agents': '按 agent',
+
+  'agent.root': '主 agent',
+  'agent.subagent': '子 agent',
+  'agent.parent': '父对话：{title}',
+  'agent.children': '{n} 个子代理',
+  'history.sessions.split': '主 {root} · 子 {sub}',
 
   'steps.time': '时间（北京）',
   'steps.band': '时段',

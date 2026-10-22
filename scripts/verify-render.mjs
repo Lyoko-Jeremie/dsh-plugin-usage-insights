@@ -43,10 +43,10 @@ if (session === undefined || history === undefined) throw new Error('both bodies
 const t = key => `[${key}]`
 
 /** Build the framework props a body receives. */
-function propsFor(projections, list) {
+function propsFor(projections, list, sessionId = 's1') {
   return {
     t,
-    sessionId: 's1',
+    sessionId,
     useProjection: key => projections[key],
     useSession: selector => selector({ running: true }),
     useSessions: selector => selector(list),
@@ -83,19 +83,27 @@ const list = {
   ids: ['s1', 's2', 's3'],
   byId: {
     s1: {
-      id: 's1', updatedAt: Date.now() - 2 * 86_400_000,
+      id: 's1', displayTitle: 'Root conversation',
+      updatedAt: Date.now() - 2 * 86_400_000,
       projectionValues: { tokenUsage: populated.tokenUsage, usageBands: populated.usageBands },
     },
-    s2: { id: 's2', updatedAt: Date.now() - 86_400_000, projectionValues: { tokenUsage: { uncachedInputTokens: 1000, outputTokens: 500, cacheReadTokens: 4000, cacheWriteTokens: 0 } } },
-    s3: { id: 's3', updatedAt: Date.now(), projectionValues: {} },
+    s2: {
+      id: 's2', displayTitle: 'Delegated work', parentId: 's1', origin: 'subagent',
+      updatedAt: Date.now() - 86_400_000,
+      projectionValues: { tokenUsage: { uncachedInputTokens: 1000, outputTokens: 500, cacheReadTokens: 4000, cacheWriteTokens: 0 } },
+    },
+    s3: { id: 's3', displayTitle: 'Another conversation', updatedAt: Date.now(), projectionValues: {} },
   },
 }
 
 const cases = [
-  ['session: populated', session, propsFor(populated, list),
-    ['154k', '34%', '66%', '48k', '[section.steps]', '1M', '[steps.peak]']],
-  ['session: empty', session, propsFor({}, list), ['[empty.noUsage]']],
-  ['history: populated', history, propsFor({}, list), ['1M', '[history.range.7d]']],
+  ['session: root', session, propsFor(populated, list),
+    ['154k', '34%', '66%', '48k', '[section.steps]', '1M', '[steps.peak]', '[agent.root]', '[agent.children]']],
+  ['session: subagent', session, propsFor(populated, list, 's2'),
+    ['[agent.subagent]', '[agent.parent]']],
+  ['session: empty', session, propsFor({}, list), ['[empty.noUsage]', '[agent.root]']],
+  ['history: populated', history, propsFor({}, list),
+    ['1M', '[history.range.7d]', '[section.agents]', '[agent.subagent]']],
   ['history: empty', history, propsFor({}, { ids: [], byId: {} }), ['[history.empty]']],
 ]
 

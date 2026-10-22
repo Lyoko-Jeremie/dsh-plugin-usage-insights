@@ -12,6 +12,13 @@ export const en = {
   'section.metrics': 'Session metrics',
   'section.history': 'Usage history',
   'section.steps': 'Requests',
+  'section.agents': 'By agent',
+
+  'agent.root': 'Root agent',
+  'agent.subagent': 'Subagent',
+  'agent.parent': 'Parent: {title}',
+  'agent.children': '{n} subagents',
+  'history.sessions.split': 'root {root} · sub {sub}',
 
   'steps.time': 'Time (Beijing)',
   'steps.band': 'Band',

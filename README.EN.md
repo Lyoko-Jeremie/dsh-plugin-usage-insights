@@ -28,13 +28,19 @@ The plugin adds two right-Sidebar pages.
   request's cost. The table shows the latest 20 requests and states the total.
 - **Exact band pricing**: each request is priced in the band its own start fell in, instead
   of applying one price to the whole conversation.
+- **Agent identity**: the header says whether the conversation is a root agent or a
+  subagent; a subagent shows its parent conversation, and a root agent shows its direct
+  subagents' count, total tokens, and cost.
 
 ![Request table](assets/panel-requests.png)
 
 ### Usage history (all conversations)
 
 - Range switch: last 7 days / 30 days / all.
-- Total tokens, conversations measured / total, active days, cache-hit rate, cost.
+- Total tokens, conversations measured / total (with a root/subagent split), active days,
+  cache-hit rate, cost.
+- **By agent**: root conversations and subagents each list their conversation count, tokens,
+  and cost.
 - Daily token chart: conversations with per-request data are grouped by the day and band
   each request actually ran in; the rest fall back to their last activity day and say so.
 - Conversations without per-request data are backfilled automatically (a *Load missing*
@@ -114,6 +120,32 @@ stays off-peak, because the official rule is weekday-based.
 
 Cost is an **estimate** priced from token counts, not the provider's invoice. A model with no
 matching price is reported as *unpriced* instead of `0`.
+
+## Root agents and subagents
+
+DSH models a subagent as its own conversation: the child session's `origin` is `subagent`,
+`parentSession` points at the parent, and `delegationDepth` records the nesting. The plugin
+uses those fields to distinguish:
+
+- **Root agent**: the root conversation; its panel shows the direct subagents' count, tokens,
+  and cost.
+- **Subagent**: shows a subagent badge and the parent conversation's title; its usage also
+  counts toward the history page's subagent row.
+- **History page**: the conversation count splits into root/subagent, and each kind lists its
+  own tokens and cost.
+
+Boundaries:
+
+- **Agent Teams members count as subagents.** The experimental Agent Teams feature spawns
+  members through `subagents.startActivation`; their sessions are structurally identical to
+  ordinary subagents (`origin: subagent`, parent = the Lead) and carry no team field, so they
+  cannot be reliably separated at the session level.
+- **Request-level sources (compaction, title, planning) are not counted.** Reasonix classifies
+  every request by purpose (executor / subagent / planner / compaction / title / …). DSH's
+  session log has no such label, and `compaction-basic`'s summarization call plus the
+  `session-title-*-llm` generation call never write `assistant/message` events, so this
+  plugin's projections cannot see that spend. Matching Reasonix's granularity requires the
+  core to record a source and usage at those auxiliary model calls.
 
 ## Pricing
 
@@ -267,7 +299,11 @@ assets/               README screenshots
   or enable the live refresh.
 - A rare failed attempt (`assistant/attempt` before any successful message) has no model
   route and is priced at the conversation's current model.
-- Subagent conversations count as separate conversations in the history totals.
+- Subagent conversations count as separate conversations in the history totals; the
+  root/subagent split is described above, and team members cannot be separated from ordinary
+  subagents at the session level.
+- Compaction summaries, title generation, and other auxiliary model calls do not write
+  session events, so their spend is outside these totals.
 - Cost is an estimate at the configured rates, not the provider's invoice.
 
 ## Privacy

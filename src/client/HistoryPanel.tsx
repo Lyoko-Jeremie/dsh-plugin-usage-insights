@@ -6,9 +6,22 @@
  * control for conversations whose usage was never cached.
  */
 import type { JSX } from 'react'
-import type { HistoryPanelProps, HistoryRange } from './contract'
+import type { AgentTotals, HistoryPanelProps, HistoryRange } from './contract'
 import { formatCount, formatMoneyRange, formatPercent, formatTokens } from '../lib/format'
-import { DailyBars, InlineMessage, Section, Stat, StyleTag } from './components'
+import { DailyBars, InlineMessage, Row, Section, Stat, StyleTag } from './components'
+
+/**
+ * Summarize one agent kind on a single line.
+ *
+ * @param totals - per-kind aggregation.
+ * @returns measured/total conversations, tokens and cost.
+ */
+function agentSummary(totals: AgentTotals): string {
+  const cost = totals.cost === null
+    ? '—'
+    : formatMoneyRange(totals.cost.amountMicros, totals.cost.amountMicrosMax, totals.cost.currency)
+  return `${formatCount(totals.measured)}/${formatCount(totals.sessions)} · ${formatTokens(totals.totalTokens)} · ${cost}`
+}
 
 /**
  * Render the usage history panel.
@@ -54,6 +67,10 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
             <Stat
               label={t('history.sessions')}
               value={`${formatCount(view.measuredCount)} / ${formatCount(view.sessionCount)}`}
+              hint={t('history.sessions.split', {
+                root: view.agents.root.sessions,
+                sub: view.agents.subagent.sessions,
+              })}
             />
             <Stat label={t('history.activeDays')} value={formatCount(view.activeDays)} />
             <Stat
@@ -74,6 +91,12 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
                     : view.cost.complete ? undefined : t('cost.partial')}
             />
           </div>
+          <Section title={t('section.agents')}>
+            <div className="dsu-rows">
+              <Row label={t('agent.root')} value={agentSummary(view.agents.root)} />
+              <Row label={t('agent.subagent')} value={agentSummary(view.agents.subagent)} />
+            </div>
+          </Section>
           <Section title={t('history.daily')}>
             <DailyBars days={view.days} t={t} />
             <div className="dsu-note">

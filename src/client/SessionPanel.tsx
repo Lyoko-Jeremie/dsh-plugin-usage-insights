@@ -54,7 +54,7 @@ function CostLine(props: { cost: CostView | null; basis: CostBasis; t: Translate
  * @returns the panel body.
  */
 export function SessionPanel(props: SessionPanelProps): JSX.Element {
-  const { view, t, running } = props
+  const { view, t, running, identity } = props
   const context = view.context
   const hasContext = context.usedTokens !== null || context.windowTokens !== null || context.ratio !== null
   const breakdown = view.breakdown
@@ -85,6 +85,24 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
           <span className="dsu-head-side-caption">{t('label.context')}</span>
         </div>
       </header>
+      <div className="dsu-agent-line">
+        <span className="dsu-agent-badge" data-kind={identity.kind}>
+          {t(identity.kind === 'subagent' ? 'agent.subagent' : 'agent.root')}
+        </span>
+        {identity.kind === 'subagent' && identity.parentTitle !== undefined && (
+          <span className="dsu-agent-note">{t('agent.parent', { title: identity.parentTitle })}</span>
+        )}
+        {identity.kind === 'root' && identity.children !== undefined && (
+          <span className="dsu-agent-note">
+            {t('agent.children', { n: identity.children.count })}
+            {' · '}
+            {formatTokens(identity.children.totalTokens)}
+            {identity.children.cost === null
+              ? null
+              : <> {' · '}{formatMoneyRange(identity.children.cost.amountMicros, identity.children.cost.amountMicrosMax, identity.children.cost.currency)}</>}
+          </span>
+        )}
+      </div>
       {!view.hasUsage && (
         <InlineMessage>
           <span>{t('empty.noUsage')}</span>
