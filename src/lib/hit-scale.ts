@@ -12,6 +12,15 @@
 export const HIT_SCALE_EXPONENT = 0.3
 
 /**
+ * Lowest rate whose one-decimal label reads as 100%.
+ *
+ * The label keeps one decimal near the top, so a fill that stopped short of the
+ * bar's end would contradict an "100.0%" figure. From this rate upward the bar
+ * therefore fills completely.
+ */
+export const FULL_HIT_RATIO = 0.9995
+
+/**
  * Reference marks on the cache-hit bars.
  *
  * Three points are enough to read the non-linear scale: half of the input
@@ -30,6 +39,7 @@ export type HitLevel = 'good' | 'warn' | 'bad' | 'none'
  */
 export function hitBarRatio(ratio: number): number {
   const clamped = Math.min(1, Math.max(0, ratio))
+  if (clamped >= FULL_HIT_RATIO) return 1
   return 1 - (1 - clamped) ** HIT_SCALE_EXPONENT
 }
 

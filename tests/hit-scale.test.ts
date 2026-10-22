@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HIT_SCALE_EXPONENT, HIT_TICKS, hitBarRatio, hitLevel } from '../src/lib/hit-scale.ts'
+import { FULL_HIT_RATIO, HIT_SCALE_EXPONENT, HIT_TICKS, hitBarRatio, hitLevel } from '../src/lib/hit-scale.ts'
 
 describe('HIT_TICKS', () => {
   it('marks ascending reference points inside the range', () => {
@@ -18,6 +18,13 @@ describe('hitBarRatio', () => {
   it('clamps values outside the ratio range', () => {
     expect(hitBarRatio(-1)).toBe(0)
     expect(hitBarRatio(2)).toBe(1)
+  })
+
+  it('fills the bar once the label reads as 100%', () => {
+    expect(hitBarRatio(FULL_HIT_RATIO)).toBe(1)
+    expect(hitBarRatio(0.9999)).toBe(1)
+    // Just below the rounding boundary the fill still stops short.
+    expect(hitBarRatio(0.999)).toBeLessThan(1)
   })
 
   it('spreads the high end of the range', () => {
