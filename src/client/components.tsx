@@ -12,12 +12,6 @@ import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
 import { formatBeijingTime, formatCount, formatMoneyRange, formatPercent, formatTokenCount, formatTokens } from '../lib/format'
 import { css } from './styles'
 
-/** Clamp a 0–1 ratio and render it as a percentage width. */
-function widthOf(ratio: number): string {
-  const clamped = Math.min(1, Math.max(0, ratio))
-  return `${clamped * 100}%`
-}
-
 /**
  * Inject the panel stylesheet.
  *
@@ -83,17 +77,51 @@ export function Row(props: { label: string; value: ReactNode; hint?: string }): 
 }
 
 /**
- * Horizontal fill bar for one ratio.
- *
- * @param props - ratio in [0, 1] or null for an unknown value, and a tone.
- * @returns the rendered bar.
+ * One segment of the context composition bar.
  */
-export function MeterBar(props: { ratio: number | null; tone?: 'default' | 'warn' }): JSX.Element {
-  const tone = props.tone ?? 'default'
+export interface CompositionSegment {
+  /** Stable style key. */
+  part: 'system' | 'tools' | 'messages'
+  /** Localized name shown in the legend. */
+  label: string
+  tokens: number
+}
+
+/**
+ * Stacked composition bar with its colour legend.
+ *
+ * The bar fills the used context: each segment takes its share of the whole
+ * composition, so the three parts read as one picture. Figures stay in the
+ * legend, beside the colour they belong to.
+ *
+ * @param props - the composition segments in display order.
+ * @returns the rendered bar and legend.
+ */
+export function CompositionBar(props: { segments: readonly CompositionSegment[] }): JSX.Element {
+  const description = props.segments
+    .map(segment => `${segment.label} ${formatTokens(segment.tokens)}`)
+    .join(' · ')
   return (
-    <div className="dsu-meter" data-tone={tone}>
-      {props.ratio !== null && <div className="dsu-meter-value" style={{ width: widthOf(props.ratio) }} />}
-    </div>
+    <>
+      <div className="dsu-compose" role="img" aria-label={description}>
+        {props.segments.map(segment => segment.tokens > 0 && (
+          <span
+            key={segment.part}
+            className="dsu-compose-seg"
+            data-part={segment.part}
+            style={{ flexGrow: segment.tokens }}
+          />
+        ))}
+      </div>
+      <div className="dsu-compose-legend">
+        {props.segments.map(segment => (
+          <span key={segment.part}>
+            <i className="dsu-swatch" data-part={segment.part} />
+            {segment.label} {formatTokens(segment.tokens)}
+          </span>
+        ))}
+      </div>
+    </>
   )
 }
 

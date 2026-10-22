@@ -322,24 +322,45 @@ export const css = `
   overflow-wrap: anywhere;
 }
 
-.dsu-meter {
-  position: relative;
+.dsu-compose {
+  display: flex;
   width: 100%;
-  height: 6px;
+  height: 8px;
   overflow: hidden;
-  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 999px;
-  background: var(--dsw-alias-bg-layer-1);
+  background: var(--dsw-alias-bg-layer-2);
 }
 
-.dsu-meter-value {
+.dsu-compose-seg {
   height: 100%;
-  border-radius: 999px;
-  background: var(--dsw-alias-brand-primary);
+  min-width: 2px;
 }
 
-.dsu-meter[data-tone='warn'] .dsu-meter-value {
+.dsu-compose-seg[data-part='system'] {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.dsu-compose-seg[data-part='tools'] {
   background: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-compose-seg[data-part='messages'] {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-compose-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  font-size: 11px;
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dsu-compose-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .dsu-ring {
@@ -397,28 +418,6 @@ export const css = `
   font-size: 11px;
   color: var(--dsw-alias-label-secondary);
   font-variant-numeric: tabular-nums;
-}
-
-.dsu-breakdown {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.dsu-breakdown-row {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.dsu-breakdown-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
 }
 
 .dsu-note {
@@ -607,6 +606,18 @@ export const css = `
 .dsu-swatch--other {
   background: var(--dsw-alias-label-tertiary);
   opacity: 0.5;
+}
+
+.dsu-swatch[data-part='system'] {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.dsu-swatch[data-part='tools'] {
+  background: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-swatch[data-part='messages'] {
+  background: var(--dsw-alias-state-success-primary);
 }
 
 .dsu-bars-axis {

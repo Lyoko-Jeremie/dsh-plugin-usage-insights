@@ -18,7 +18,7 @@ import {
 } from '../lib/format'
 import { peakTokenShare } from '../lib/band-share.ts'
 import {
-  bandShareText, ChildAgentsTable, InlineMessage, MeterBar, Ring, Row, Section, Stat, StepTable, StyleTag,
+  bandShareText, ChildAgentsTable, CompositionBar, InlineMessage, Ring, Row, Section, Stat, StepTable, StyleTag,
 } from './components'
 
 /**
@@ -186,46 +186,30 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
         </Section>
       )}
       {(view.hasUsage || hasContext) && (
-        <Section title={t('section.context')} aside={context.ratio === null ? undefined : contextLabel}>
+        <Section title={t('section.context')}>
           {context.windowTokens === null ? (
             <InlineMessage>{t('context.capacityUnknown')}</InlineMessage>
-          ) : context.usedTokens === null ? (
-            <InlineMessage>{t('context.notReported')}</InlineMessage>
           ) : (
             <div className="dsu-ctx">
-              <div className="dsu-ctx-line">
-                <span className="dsu-ctx-used">
-                  {formatTokens(context.usedTokens)} <span className="dsu-ctx-sep">/</span>{' '}
-                  {formatTokens(context.windowTokens)}
-                </span>
-              </div>
-              <MeterBar ratio={context.ratio} />
-            </div>
-          )}
-          {breakdown !== null && (
-            <div className="dsu-breakdown">
-              <div className="dsu-breakdown-row">
-                <div className="dsu-breakdown-head">
-                  <span className="dsu-row-label">{t('context.breakdown.system')}</span>
-                  <span className="dsu-row-value">{formatTokens(breakdown.systemTokens)}</span>
+              {context.usedTokens === null ? (
+                <InlineMessage>{t('context.notReported')}</InlineMessage>
+              ) : (
+                <div className="dsu-ctx-line">
+                  <span className="dsu-ctx-used">
+                    {formatTokens(context.usedTokens)} <span className="dsu-ctx-sep">/</span>{' '}
+                    {formatTokens(context.windowTokens)}
+                  </span>
+                  <span className="dsu-ctx-pct">{contextLabel}</span>
                 </div>
-                <MeterBar ratio={breakdownTotal > 0 ? breakdown.systemTokens / breakdownTotal : null} />
-              </div>
-              <div className="dsu-breakdown-row">
-                <div className="dsu-breakdown-head">
-                  <span className="dsu-row-label">{t('context.breakdown.tools')}</span>
-                  <span className="dsu-row-value">{formatTokens(breakdown.toolsTokens)}</span>
-                </div>
-                <MeterBar ratio={breakdownTotal > 0 ? breakdown.toolsTokens / breakdownTotal : null} />
-              </div>
-              <div className="dsu-breakdown-row">
-                <div className="dsu-breakdown-head">
-                  <span className="dsu-row-label">{t('context.breakdown.messages')}</span>
-                  <span className="dsu-row-value">{formatTokens(breakdown.messageTokens)}</span>
-                </div>
-                <MeterBar ratio={breakdownTotal > 0 ? breakdown.messageTokens / breakdownTotal : null} />
-              </div>
-              <div className="dsu-note">{t('context.breakdown.hint')}</div>
+              )}
+              {breakdown !== null && breakdownTotal > 0 && (
+                <CompositionBar segments={[
+                  { part: 'system', label: t('context.breakdown.system'), tokens: breakdown.systemTokens },
+                  { part: 'tools', label: t('context.breakdown.tools'), tokens: breakdown.toolsTokens },
+                  { part: 'messages', label: t('context.breakdown.messages'), tokens: breakdown.messageTokens },
+                ]} />
+              )}
+              {breakdown !== null && <div className="dsu-note">{t('context.breakdown.hint')}</div>}
             </div>
           )}
         </Section>
