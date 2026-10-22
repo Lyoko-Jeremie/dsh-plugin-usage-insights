@@ -15,6 +15,7 @@ import {
   formatTokens,
   formatTokensPerSecond,
 } from '../lib/format'
+import { peakTokenShare } from '../lib/band-share.ts'
 import {
   bandShareText, ChildAgentsTable, InlineMessage, MeterBar, Ring, Row, Section, Stat, StepTable, StyleTag,
 } from './components'
@@ -64,6 +65,8 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
     breakdown === null ? 0 : breakdown.systemTokens + breakdown.toolsTokens + breakdown.messageTokens
   const avgPerTurn = view.turns > 0 ? Math.round(view.totalTokens / view.turns) : 0
   const contextLabel = context.ratio === null ? '—' : formatPercent(context.ratio)
+  const peakShare = view.bandShare === null ? null : peakTokenShare(view.bandShare)
+  const peakRingLabel = peakShare === null ? '—' : formatPercent(peakShare)
   return (
     <div className="dsu-root">
       <StyleTag />
@@ -83,8 +86,21 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
           )}
         </div>
         <div className="dsu-head-side">
-          <Ring ratio={context.ratio} label={contextLabel} />
-          <span className="dsu-head-side-caption">{t('label.context')}</span>
+          {peakShare !== null && view.bandShare !== null && (
+            <div className="dsu-ring-block">
+              <Ring
+                ratio={peakShare}
+                label={peakRingLabel}
+                tone="band"
+                description={bandShareText(view.bandShare, t, 'tokens')}
+              />
+              <span className="dsu-head-side-caption">{t('label.bandShare.short')}</span>
+            </div>
+          )}
+          <div className="dsu-ring-block">
+            <Ring ratio={context.ratio} label={contextLabel} />
+            <span className="dsu-head-side-caption">{t('label.context')}</span>
+          </div>
         </div>
       </header>
       <div className="dsu-agent-line">

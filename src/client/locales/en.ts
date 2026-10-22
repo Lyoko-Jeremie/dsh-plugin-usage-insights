@@ -67,6 +67,8 @@ export const en = {
   'label.cost': 'Cost',
   'label.cost.hint': 'Estimated from the configured price table',
   'label.bandShare': 'Peak / off-peak',
+  'label.bandShare.short': 'Peak/off',
+  'band.other': 'Unattributed',
   'band.byTokens': 'By tokens',
   'band.byRequests': 'By requests',
   'band.partial': 'Only conversations with per-band data',

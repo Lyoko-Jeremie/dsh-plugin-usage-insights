@@ -245,18 +245,33 @@ function addBandDay(totals: Map<string, DayTotal>, day: BandDayView): void {
   let cacheReadTokens = 0
   let cacheWriteTokens = 0
   let sessions = 0
-  for (const entry of [...day.peak, ...day.offPeak]) {
+  let peakTokens = 0
+  let offPeakTokens = 0
+  for (const entry of day.peak) {
+    const tokens = entry.uncachedInputTokens + entry.cacheReadTokens + entry.cacheWriteTokens + entry.outputTokens
+    peakTokens += tokens
     inputTokens += entry.uncachedInputTokens
     outputTokens += entry.outputTokens
     cacheReadTokens += entry.cacheReadTokens
     cacheWriteTokens += entry.cacheWriteTokens
-    totalTokens += entry.uncachedInputTokens + entry.cacheReadTokens + entry.cacheWriteTokens + entry.outputTokens
+    totalTokens += tokens
+    sessions += entry.requests
+  }
+  for (const entry of day.offPeak) {
+    const tokens = entry.uncachedInputTokens + entry.cacheReadTokens + entry.cacheWriteTokens + entry.outputTokens
+    offPeakTokens += tokens
+    inputTokens += entry.uncachedInputTokens
+    outputTokens += entry.outputTokens
+    cacheReadTokens += entry.cacheReadTokens
+    cacheWriteTokens += entry.cacheWriteTokens
+    totalTokens += tokens
     sessions += entry.requests
   }
   const existing = totals.get(day.day)
   if (existing === undefined) {
     totals.set(day.day, {
       day: day.day, totalTokens, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, sessions,
+      peakTokens, offPeakTokens, unattributedTokens: 0,
     })
     return
   }
@@ -266,6 +281,8 @@ function addBandDay(totals: Map<string, DayTotal>, day: BandDayView): void {
   existing.cacheReadTokens += cacheReadTokens
   existing.cacheWriteTokens += cacheWriteTokens
   existing.sessions += sessions
+  existing.peakTokens += peakTokens
+  existing.offPeakTokens += offPeakTokens
 }
 
 /**
@@ -326,25 +343,30 @@ function addBuckets(totals: TokenBuckets, usage: TokenBuckets): void {
  */
 function addDay(totals: Map<string, DayTotal>, updatedAt: number, usage: TokenBuckets): void {
   const day = dayKey(updatedAt)
+  const tokens = sumBuckets(usage)
   const existing = totals.get(day)
   if (existing === undefined) {
     totals.set(day, {
       day,
-      totalTokens: sumBuckets(usage),
+      totalTokens: tokens,
       inputTokens: usage.uncachedInputTokens,
       outputTokens: usage.outputTokens,
       cacheReadTokens: usage.cacheReadTokens,
       cacheWriteTokens: usage.cacheWriteTokens,
       sessions: 1,
+      peakTokens: 0,
+      offPeakTokens: 0,
+      unattributedTokens: tokens,
     })
     return
   }
-  existing.totalTokens += sumBuckets(usage)
+  existing.totalTokens += tokens
   existing.inputTokens += usage.uncachedInputTokens
   existing.outputTokens += usage.outputTokens
   existing.cacheReadTokens += usage.cacheReadTokens
   existing.cacheWriteTokens += usage.cacheWriteTokens
   existing.sessions += 1
+  existing.unattributedTokens += tokens
 }
 
 /**

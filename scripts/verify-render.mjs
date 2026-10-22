@@ -107,7 +107,7 @@ const cases = [
   ['session: root', session, propsFor(populated, list),
     ['154k', '34%', '66%', '48k', '[section.steps]', '1M', '[steps.peak]', '[agent.root]',
       '[agent.children]', '[section.subagents]', '[agents.child]', '[steps.agent]', '#1',
-      '[label.bandShare]']],
+      '[label.bandShare]', '[label.bandShare.short]', 'dsu-ring--band']],
   ['session: subagent', session, propsFor(populated, list, 's2'),
     ['[agent.subagent]', '[agent.parent]']],
   ['session: empty', session, propsFor({}, list), ['[empty.noUsage]', '[agent.root]']],

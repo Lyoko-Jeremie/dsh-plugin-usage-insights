@@ -119,10 +119,25 @@ export const css = `
 
 .dsu-head-side {
   display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.dsu-ring-block {
+  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  flex: 0 0 auto;
+}
+
+.dsu-ring--band .dsu-ring-track {
+  stroke: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-ring--band .dsu-ring-value {
+  stroke: var(--dsw-alias-state-warn-primary);
 }
 
 .dsu-head-side-caption {
@@ -509,15 +524,68 @@ export const css = `
   flex: 1 1 0;
   min-width: 0;
   min-height: 2px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
   border-radius: 2px 2px 0 0;
-  background: var(--dsw-alias-brand-primary);
-  /* The brand token is near-black here; a full-opacity block reads as a filled
-     rectangle rather than a bar. */
-  opacity: 0.45;
+}
+
+.dsu-bar-seg {
+  display: block;
+  flex-basis: 0;
+  min-height: 0;
+}
+
+.dsu-bar-seg--peak {
+  background: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-bar-seg--off {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-bar-seg--other {
+  background: var(--dsw-alias-label-tertiary);
+  opacity: 0.5;
 }
 
 .dsu-bar--empty {
   background: var(--dsw-alias-border-l2);
+}
+
+.dsu-bars-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.dsu-bars-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dsu-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.dsu-swatch--peak {
+  background: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-swatch--off {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-swatch--other {
+  background: var(--dsw-alias-label-tertiary);
+  opacity: 0.5;
 }
 
 .dsu-bars-axis {

@@ -69,6 +69,8 @@ export const zh = {
   'label.cost': '费用',
   'label.cost.hint': '按已配置的价格表估算',
   'label.bandShare': '峰谷比例',
+  'label.bandShare.short': '峰谷',
+  'band.other': '未分类',
   'band.byTokens': '按 Token',
   'band.byRequests': '按请求',
   'band.partial': '仅统计有峰谷明细的会话',

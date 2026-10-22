@@ -22,6 +22,8 @@ The plugin adds two right-Sidebar pages.
   (by tokens and by requests).
 - **Context window**: used vs capacity, occupancy percentage, and the approximate
   composition of system prompt / tool definitions / messages.
+- **Peak/off-peak ring**: a second ring left of the context ring draws the peak share as an
+  amber arc over a green off-peak track, with the peak percentage in the center (by tokens).
 - **Session metrics**: turns, steps, tokens per turn, model time, tool time, first-token
   latency, decode speed.
 - **Request table** (collapsed by default, click to expand): the root agent's requests and
@@ -51,8 +53,9 @@ The plugin adds two right-Sidebar pages.
   and cost.
 - **Peak / off-peak share**: by tokens and by requests, counting only conversations that
   carry a band rollup and saying so when some do not.
-- Daily token chart: conversations with per-request data are grouped by the day and band
-  each request actually ran in; the rest fall back to their last activity day and say so.
+- Daily token chart: bars stack the peak (amber) and off-peak (green) tokens with a legend.
+  Conversations with per-request data are grouped by the day and band each request actually
+  ran in; the rest fall back to their last activity day and appear gray as unattributed.
 - Conversations without per-request data are backfilled automatically (a *Load missing*
   control covers large catalogs).
 

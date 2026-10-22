@@ -103,12 +103,25 @@ export function MeterBar(props: { ratio: number | null; tone?: 'default' | 'warn
  * @param props - ratio in [0, 1] or null for an unknown value, and centre label.
  * @returns the rendered ring.
  */
-export function Ring(props: { ratio: number | null; label: string }): JSX.Element {
+export function Ring(props: {
+  ratio: number | null
+  label: string
+  /** 'band' colors the value arc peak-amber over an off-peak track. */
+  tone?: 'context' | 'band'
+  /** Accessible description; defaults to the visible label. */
+  description?: string
+}): JSX.Element {
   const radius = 16
   const circumference = 2 * Math.PI * radius
   const clamped = props.ratio === null ? null : Math.min(1, Math.max(0, props.ratio))
   return (
-    <svg className="dsu-ring" viewBox="0 0 40 40" role="img" aria-label={props.label}>
+    <svg
+      className={props.tone === 'band' ? 'dsu-ring dsu-ring--band' : 'dsu-ring'}
+      viewBox="0 0 40 40"
+      role="img"
+      aria-label={props.description ?? props.label}
+    >
+      {props.description !== undefined && <title>{props.description}</title>}
       <circle className="dsu-ring-track" cx="20" cy="20" r={radius} />
       {clamped !== null && (
         <circle
@@ -144,6 +157,7 @@ export function DailyBars(props: { days: readonly DayTotal[]; t: Translate }): J
   }
   const first = days[0]
   const last = days[days.length - 1]
+  const anyUnattributed = days.some(day => day.unattributedTokens > 0)
   return (
     <div className="dsu-bars-wrap">
       <div className="dsu-bars" role="img" aria-label={props.t('history.daily')}>
@@ -155,10 +169,29 @@ export function DailyBars(props: { days: readonly DayTotal[]; t: Translate }): J
               key={day.day}
               className={empty ? 'dsu-bar dsu-bar--empty' : 'dsu-bar'}
               style={{ height: empty ? '2px' : `${height}%` }}
-              title={`${day.day} · ${formatTokens(day.totalTokens)}`}
-            />
+              title={`${day.day} · ${formatTokens(day.totalTokens)} · ${props.t('steps.peak')} ${formatTokens(day.peakTokens)} · ${props.t('steps.offPeak')} ${formatTokens(day.offPeakTokens)}`}
+            >
+              {!empty && (
+                <>
+                  {day.offPeakTokens > 0 && (
+                    <span className="dsu-bar-seg dsu-bar-seg--off" style={{ flexGrow: day.offPeakTokens }} />
+                  )}
+                  {day.peakTokens > 0 && (
+                    <span className="dsu-bar-seg dsu-bar-seg--peak" style={{ flexGrow: day.peakTokens }} />
+                  )}
+                  {day.unattributedTokens > 0 && (
+                    <span className="dsu-bar-seg dsu-bar-seg--other" style={{ flexGrow: day.unattributedTokens }} />
+                  )}
+                </>
+              )}
+            </div>
           )
         })}
+      </div>
+      <div className="dsu-bars-legend">
+        <span><i className="dsu-swatch dsu-swatch--peak" />{props.t('steps.peak')}</span>
+        <span><i className="dsu-swatch dsu-swatch--off" />{props.t('steps.offPeak')}</span>
+        {anyUnattributed && <span><i className="dsu-swatch dsu-swatch--other" />{props.t('band.other')}</span>}
       </div>
       {first !== undefined && last !== undefined && first.day !== last.day && (
         <div className="dsu-bars-axis">

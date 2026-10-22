@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { HistorySessionInput, ModelRef, PricingTable, TokenBuckets } from '../src/client/contract.ts'
 import { aggregateHistory, dayKey, RANGE_DAYS } from '../src/lib/aggregate.ts'
 
@@ -201,6 +201,9 @@ describe('aggregateHistory', () => {
         cacheReadTokens: 0,
         cacheWriteTokens: 0,
         sessions: 1,
+        peakTokens: 0,
+        offPeakTokens: 0,
+        unattributedTokens: 10,
       },
       {
         day: '2024-05-10',
@@ -210,6 +213,9 @@ describe('aggregateHistory', () => {
         cacheReadTokens: 15,
         cacheWriteTokens: 3,
         sessions: 2,
+        peakTokens: 0,
+        offPeakTokens: 0,
+        unattributedTokens: 348,
       },
     ])
     expect(view.totalTokens).toBe(358)

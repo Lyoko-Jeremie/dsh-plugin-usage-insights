@@ -60,6 +60,32 @@ describe('aggregateHistory band share', () => {
     expect(view.bandSharePartial).toBe(false)
   })
 
+  it('splits each day bar by band', () => {
+    const now = Date.UTC(2026, 9, 21, 12, 0)
+    const rollup: UsageBandsView = {
+      days: [{ day: '2026-10-20', peak: [entry(2, 200)], offPeak: [entry(1, 100)] }],
+      total: { peak: [entry(2, 200)], offPeak: [entry(1, 100)] },
+    }
+    const view = aggregateHistory({
+      sessions: [{ id: 'a', updatedAt: now, model: null, bands: rollup }],
+      range: '7d',
+      now,
+      pricing: { currency: 'CNY', prices: [] },
+    })
+    expect(view.days).toEqual([{
+      day: '2026-10-20',
+      totalTokens: 300,
+      inputTokens: 300,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      sessions: 3,
+      peakTokens: 200,
+      offPeakTokens: 100,
+      unattributedTokens: 0,
+    }])
+  })
+
   it('marks the share partial when a conversation has no rollup', () => {
     const now = Date.UTC(2026, 9, 21, 12, 0)
     const view = aggregateHistory({

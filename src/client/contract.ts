@@ -224,6 +224,12 @@ export interface DayTotal {
   cacheWriteTokens: number
   /** Conversations that contributed to this day. */
   sessions: number
+  /** Tokens billed at peak rates. */
+  peakTokens: number
+  /** Tokens billed off-peak. */
+  offPeakTokens: number
+  /** Tokens that could not be attributed to a band. */
+  unattributedTokens: number
 }
 
 /** The range filter of the cross-conversation view. */
