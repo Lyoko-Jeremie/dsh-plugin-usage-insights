@@ -6,7 +6,7 @@
  * storage.
  */
 import type {
-  BandModelView, BreakdownView, CostBasis, CostView, ModelRef, PricingTable,
+  BandModelView, BreakdownView, CacheHitView, CostBasis, CostView, ModelRef, PricingTable,
   SessionUsageView, StepActivityView, StepDetailView, TokenBuckets, UsageBandsView, UsageStepView,
 } from '../client/contract.ts'
 import { bandShareOf } from './band-share.ts'
@@ -64,11 +64,13 @@ export function deriveSessionUsage(input: SessionUsageInput): SessionUsageView {
   const model = input.modelSelection?.next ?? input.modelSelection?.lastUsed ?? null
   const steps = decorateStepDetails(input.steps, model, input.pricing)
   const priced = deriveCost(input, model, buckets)
+  const cacheRate = billedInputTokens > 0 ? buckets.cacheReadTokens / billedInputTokens : null
   return {
     buckets,
     totalTokens,
     billedInputTokens,
-    cacheRate: billedInputTokens > 0 ? buckets.cacheReadTokens / billedInputTokens : null,
+    cacheRate,
+    cacheHits: cacheHitsOf(input.steps, cacheRate),
     requests: input.steps?.totalSteps ?? stats?.steps ?? 0,
     turns: stats?.turns ?? 0,
     steps: stats?.steps ?? 0,
@@ -86,6 +88,47 @@ export function deriveSessionUsage(input: SessionUsageInput): SessionUsageView {
     bandShare: bandShareOf(input.bands),
     hasUsage: totalTokens > 0,
   }
+}
+
+/**
+ * Cache-hit ratios at the three scopes the panel reports.
+ *
+ * The total covers the complete durable log. The turn and step figures come
+ * from the request window, so they stay null until the Host publishes requests.
+ *
+ * @param raw - the `usageSteps` view, or null/undefined without the projection.
+ * @param total - whole-log hit ratio.
+ * @returns ratios for the whole log, the newest turn and the newest request.
+ */
+export function cacheHitsOf(
+  raw: SessionUsageInput['steps'],
+  total: number | null,
+): CacheHitView {
+  const last = raw?.steps.at(-1)
+  if (last === undefined) return { total, turn: null, step: null }
+  const turn = { uncachedInputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }
+  for (const step of raw!.steps) {
+    if (step.turn !== last.turn) continue
+    turn.uncachedInputTokens += step.uncachedInputTokens
+    turn.cacheReadTokens += step.cacheReadTokens
+    turn.cacheWriteTokens += step.cacheWriteTokens
+  }
+  return { total, turn: hitRatio(turn), step: hitRatio(last) }
+}
+
+/**
+ * Cache reads over the billed input of one scope.
+ *
+ * @param buckets - that scope's input-side counters.
+ * @returns the ratio, or null when the scope billed no input.
+ */
+function hitRatio(buckets: {
+  uncachedInputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+}): number | null {
+  const billed = buckets.uncachedInputTokens + buckets.cacheReadTokens + buckets.cacheWriteTokens
+  return billed > 0 ? buckets.cacheReadTokens / billed : null
 }
 
 /**

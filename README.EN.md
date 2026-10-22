@@ -20,6 +20,8 @@ The plugin adds two right-Sidebar pages.
 - **Session overview**: request count, total tokens, input / cache read / output bucket rows
   (the cache-write row appears only when a provider reports explicit cache creation),
   cache-hit rate, cost, and the peak/off-peak share (one row by tokens, one by requests).
+- **Cache hit**: its own section with three scopes — cumulative for this conversation, the
+  current turn, and the latest request.
 - **Token figures**: the overview's Token card (including its input/output hint) uses compact
   `K` / `M` / `G` units; the remaining overview rows, session metrics, subagent detail and
   request ledger show exact grouped integers (for example `275,123,456`); the header total,
@@ -57,7 +59,7 @@ The plugin adds two right-Sidebar pages.
 - Total tokens, conversations measured / total (with a root/subagent split), active days,
   cache-hit rate, cost.
 - **By agent**: root conversations and subagents each list their conversation count, tokens,
-  and cost.
+  their own cache-hit rate, and cost.
 - **Peak / off-peak share**: by tokens and by requests, counting only conversations that
   carry a band rollup and saying so when some do not.
 - Daily token chart: bars stack the peak (amber) and off-peak (green) tokens with a legend.

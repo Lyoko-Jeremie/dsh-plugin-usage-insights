@@ -28,6 +28,16 @@ function agentSummary(totals: AgentTotals): { text: string; title: string } {
 }
 
 /**
+ * Render one agent kind's cache-hit rate.
+ *
+ * @param rate - cache reads over billed input, or null without usage.
+ * @returns the percentage, or an em dash.
+ */
+function hitRateText(rate: number | null): string {
+  return rate === null ? '—' : formatPercent(rate)
+}
+
+/**
  * Render the usage history panel.
  *
  * @param props - aggregated view, translate seat, selected range and callbacks.
@@ -101,8 +111,18 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
           </div>
           <Section title={t('section.agents')}>
             <div className="dsu-rows">
-              <Row label={t('agent.root')} value={rootSummary.text} title={rootSummary.title} />
-              <Row label={t('agent.subagent')} value={subagentSummary.text} title={subagentSummary.title} />
+              <Row
+                label={t('agent.root')}
+                value={rootSummary.text}
+                title={rootSummary.title}
+                hint={`${t('label.cacheHit')} ${hitRateText(view.agents.root.cacheRate)}`}
+              />
+              <Row
+                label={t('agent.subagent')}
+                value={subagentSummary.text}
+                title={subagentSummary.title}
+                hint={`${t('label.cacheHit')} ${hitRateText(view.agents.subagent.cacheRate)}`}
+              />
             </div>
           </Section>
           {view.bandShare !== null && (

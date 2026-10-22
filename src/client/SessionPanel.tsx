@@ -76,6 +76,7 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
     ]
   const avgPerTurn = view.turns > 0 ? Math.round(view.totalTokens / view.turns) : 0
   const contextLabel = context.ratio === null ? '—' : formatPercent(context.ratio)
+  const percentOf = (ratio: number | null): string => ratio === null ? '—' : formatPercent(ratio)
   const peakShare = view.bandShare === null ? null : peakTokenShare(view.bandShare)
   const peakRingLabel = peakShare === null ? '—' : formatPercent(peakShare)
   return (
@@ -200,6 +201,15 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
                 />
               </>
             )}
+          </div>
+        </Section>
+      )}
+      {view.hasUsage && (
+        <Section title={t('section.cacheHit')}>
+          <div className="dsu-rows">
+            <Row label={t('cacheHit.total')} value={percentOf(view.cacheHits.total)} />
+            <Row label={t('cacheHit.turn')} value={percentOf(view.cacheHits.turn)} />
+            <Row label={t('cacheHit.step')} value={percentOf(view.cacheHits.step)} />
           </div>
         </Section>
       )}

@@ -8,6 +8,10 @@ export const en = {
   'guide.history.description': 'Tokens and cache usage across every conversation.',
 
   'section.overview': 'Session overview',
+  'section.cacheHit': 'Cache hit',
+  'cacheHit.total': 'Cumulative (this conversation)',
+  'cacheHit.turn': 'Current turn',
+  'cacheHit.step': 'Latest request',
   'section.context': 'Context window',
   'section.metrics': 'Session metrics',
   'section.history': 'Usage history',

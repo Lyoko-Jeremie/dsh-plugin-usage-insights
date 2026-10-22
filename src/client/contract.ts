@@ -178,6 +178,16 @@ export interface UsageBandsView {
 /** How a cost figure was obtained, so the panel can label its accuracy. */
 export type CostBasis = 'bands' | 'range' | 'none'
 
+/** Cache-hit ratio at three scopes of one conversation. */
+export interface CacheHitView {
+  /** Whole durable log. */
+  total: number | null
+  /** Requests of the newest turn. */
+  turn: number | null
+  /** The most recent request. */
+  step: number | null
+}
+
 /** Everything the single-conversation panel renders. */
 export interface SessionUsageView {
   buckets: TokenBuckets
@@ -187,6 +197,8 @@ export interface SessionUsageView {
   billedInputTokens: number
   /** Cache reads over billed input, or null when no input was billed. */
   cacheRate: number | null
+  /** Cache-hit ratios by scope; turn and step need the request window. */
+  cacheHits: CacheHitView
   /** Model calls in this conversation; the session-stats step count in v0.1. */
   requests: number
   turns: number

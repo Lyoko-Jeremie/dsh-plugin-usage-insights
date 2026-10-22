@@ -10,6 +10,10 @@ export const zh = {
   'guide.history.description': '跨所有对话的 Token 与缓存用量。',
 
   'section.overview': '会话概览',
+  'section.cacheHit': '缓存命中',
+  'cacheHit.total': '累计（本会话）',
+  'cacheHit.turn': '当前回合',
+  'cacheHit.step': '最近一步',
   'section.context': '上下文窗口',
   'section.metrics': '会话指标',
   'section.history': '用量汇总',

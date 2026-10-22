@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { BreakdownView, PricingTable } from '../src/client/contract.ts'
 import { deriveSessionUsage } from '../src/lib/usage.ts'
 
@@ -89,6 +89,7 @@ describe('deriveSessionUsage', () => {
       totalTokens: 0,
       billedInputTokens: 0,
       cacheRate: null,
+      cacheHits: { total: null, turn: null, step: null },
       requests: 0,
       turns: 0,
       steps: 0,
@@ -206,5 +207,52 @@ describe('deriveSessionUsage', () => {
     expect(view.buckets).toEqual(tokenUsage)
     expect(view.hasUsage).toBe(false)
     expect(view.cacheRate).toBeNull()
+  })
+})
+
+describe('cacheHits', () => {
+  /** One request row with its input-side counters. */
+  function step(turn: number, index: number, uncached: number, read: number) {
+    return {
+      at: index,
+      turn,
+      step: index,
+      provider: 'deepseek',
+      model: 'chat',
+      band: 'peak' as const,
+      uncachedInputTokens: uncached,
+      cacheReadTokens: read,
+      cacheWriteTokens: 0,
+      outputTokens: 10,
+      reasoningTokens: 0,
+    }
+  }
+
+  it('reports whole-log, newest-turn and newest-request hit rates', () => {
+    const view = deriveSessionUsage({
+      tokenUsage: { uncachedInputTokens: 100, cacheReadTokens: 900, cacheWriteTokens: 0, outputTokens: 50 },
+      steps: {
+        steps: [
+          step(1, 1, 100, 0),
+          step(1, 2, 0, 100),
+          step(2, 1, 25, 75),
+          step(2, 2, 50, 50),
+        ],
+        totalSteps: 4,
+        omittedSteps: 0,
+      },
+      pricing,
+    })
+    expect(view.cacheHits.total).toBeCloseTo(0.9, 6)
+    expect(view.cacheHits.turn).toBeCloseTo(125 / 200, 6)
+    expect(view.cacheHits.step).toBeCloseTo(0.5, 6)
+  })
+
+  it('leaves the turn and step rates null without a request window', () => {
+    const view = deriveSessionUsage({
+      tokenUsage: { uncachedInputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 1 },
+      pricing,
+    })
+    expect(view.cacheHits).toEqual({ total: 0, turn: null, step: null })
   })
 })
