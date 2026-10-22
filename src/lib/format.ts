@@ -50,6 +50,20 @@ export function formatCount(value: number): string {
 }
 
 /**
+ * Format a token count as an exact grouped integer.
+ *
+ * Token totals read as exact figures everywhere except the context window and
+ * the per-request ledger, where a compact `k`/`M` unit keeps the narrow columns
+ * readable.
+ *
+ * @param value - token count, normally a non-negative integer.
+ * @returns `"275,123,456"`.
+ */
+export function formatTokenCount(value: number): string {
+  return COUNT_FORMAT.format(Math.round(value))
+}
+
+/**
  * Format a ratio as a percentage of a whole.
  *
  * A ratio above 0.995 but below 1 keeps one decimal, so a nearly full figure

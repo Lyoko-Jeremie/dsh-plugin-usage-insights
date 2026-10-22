@@ -7,7 +7,7 @@
  */
 import type { JSX } from 'react'
 import type { AgentTotals, HistoryPanelProps, HistoryRange } from './contract'
-import { formatCount, formatMoneyRange, formatPercent, formatTokens } from '../lib/format'
+import { formatCount, formatMoneyRange, formatPercent, formatTokenCount } from '../lib/format'
 import { bandShareText, DailyBars, InlineMessage, Row, Section, Stat, StyleTag } from './components'
 
 /**
@@ -20,7 +20,7 @@ function agentSummary(totals: AgentTotals): string {
   const cost = totals.cost === null
     ? '—'
     : formatMoneyRange(totals.cost.amountMicros, totals.cost.amountMicrosMax, totals.cost.currency)
-  return `${formatCount(totals.measured)}/${formatCount(totals.sessions)} · ${formatTokens(totals.totalTokens)} · ${cost}`
+  return `${formatCount(totals.measured)}/${formatCount(totals.sessions)} · ${formatTokenCount(totals.totalTokens)} · ${cost}`
 }
 
 /**
@@ -59,7 +59,7 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
         <>
           <header className="dsu-head">
             <div className="dsu-head-main">
-              <div className="dsu-head-value">{formatTokens(view.totalTokens)}</div>
+              <div className="dsu-head-value">{formatTokenCount(view.totalTokens)}</div>
               <div className="dsu-head-caption">{t('history.total')}</div>
             </div>
           </header>

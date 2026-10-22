@@ -6,6 +6,7 @@ import {
   formatMoney,
   formatMoneyRange,
   formatPercent,
+  formatTokenCount,
   formatTokens,
   formatTokensPerSecond,
 } from '../src/lib/format.ts'
@@ -39,6 +40,19 @@ describe('formatTokens', () => {
 
   it('keeps the sign of a negative value', () => {
     expect(formatTokens(-1_234)).toBe('-1.2k')
+  })
+})
+
+describe('formatTokenCount', () => {
+  it('keeps the exact value with thousands separators', () => {
+    expect(formatTokenCount(0)).toBe('0')
+    expect(formatTokenCount(999)).toBe('999')
+    expect(formatTokenCount(154_487)).toBe('154,487')
+    expect(formatTokenCount(275_123_456)).toBe('275,123,456')
+  })
+
+  it('rounds a fractional token count', () => {
+    expect(formatTokenCount(1_234.6)).toBe('1,235')
   })
 })
 

@@ -19,7 +19,10 @@ The plugin adds two right-Sidebar pages.
 
 - **Session overview**: request count, total tokens, the four disjoint buckets (input /
   cache read / cache write / output), cache-hit rate, cost, and the peak/off-peak share
-  (by tokens and by requests).
+  (one row by tokens, one by requests).
+- **Exact token figures**: apart from the context window and the request ledger, every token
+  value is an exact integer with thousands separators (for example `275,123,456`) instead of
+  a compact `275M` abbreviation.
 - **Context window**: used vs capacity, occupancy percentage, and the approximate
   composition of system prompt / tool definitions / messages.
 - **Peak/off-peak ring**: a second ring left of the context ring draws the peak share as an

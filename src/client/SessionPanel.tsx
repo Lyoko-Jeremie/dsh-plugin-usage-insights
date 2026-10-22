@@ -12,6 +12,7 @@ import {
   formatDuration,
   formatMoneyRange,
   formatPercent,
+  formatTokenCount,
   formatTokens,
   formatTokensPerSecond,
 } from '../lib/format'
@@ -74,7 +75,7 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
         <div className="dsu-head-main">
           {view.hasUsage && (
             <>
-              <div className="dsu-head-value">{formatTokens(view.totalTokens)}</div>
+              <div className="dsu-head-value">{formatTokenCount(view.totalTokens)}</div>
               <div className="dsu-head-caption">{t('label.tokens')}</div>
               <CostLine cost={view.cost} basis={view.costBasis} t={t} />
             </>
@@ -119,7 +120,7 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
             <span className="dsu-steps-meta">
               {t('agent.children', { n: identity.children.count })}
               {' · '}
-              {formatTokens(identity.children.totalTokens)}
+              {formatTokenCount(identity.children.totalTokens)}
               {identity.children.cost === null
                 ? null
                 : <> {' · '}{formatMoneyRange(identity.children.cost.amountMicros, identity.children.cost.amountMicrosMax, identity.children.cost.currency)}</>}
@@ -142,8 +143,8 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
             <Stat label={t('label.requests')} value={formatCount(view.requests)} hint={t('label.requests.hint')} />
             <Stat
               label={t('label.tokens')}
-              value={formatTokens(view.totalTokens)}
-              hint={`${t('label.input')} ${formatTokens(view.buckets.uncachedInputTokens)} · ${t('label.output')} ${formatTokens(view.buckets.outputTokens)}`}
+              value={formatTokenCount(view.totalTokens)}
+              hint={`${t('label.input')} ${formatTokenCount(view.buckets.uncachedInputTokens)} · ${t('label.output')} ${formatTokenCount(view.buckets.outputTokens)}`}
             />
             <Stat
               label={t('label.cacheHit')}
@@ -165,16 +166,21 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
             />
           </div>
           <div className="dsu-rows">
-            <Row label={t('label.input')} value={formatTokens(view.buckets.uncachedInputTokens)} />
-            <Row label={t('label.cacheRead')} value={formatTokens(view.buckets.cacheReadTokens)} />
-            <Row label={t('label.cacheWrite')} value={formatTokens(view.buckets.cacheWriteTokens)} />
-            <Row label={t('label.output')} value={formatTokens(view.buckets.outputTokens)} />
+            <Row label={t('label.input')} value={formatTokenCount(view.buckets.uncachedInputTokens)} />
+            <Row label={t('label.cacheRead')} value={formatTokenCount(view.buckets.cacheReadTokens)} />
+            <Row label={t('label.cacheWrite')} value={formatTokenCount(view.buckets.cacheWriteTokens)} />
+            <Row label={t('label.output')} value={formatTokenCount(view.buckets.outputTokens)} />
             {view.bandShare !== null && (
-              <Row
-                label={t('label.bandShare')}
-                value={bandShareText(view.bandShare, t, 'tokens')}
-                hint={bandShareText(view.bandShare, t, 'requests')}
-              />
+              <>
+                <Row
+                  label={t('label.bandShare.tokens')}
+                  value={bandShareText(view.bandShare, t, 'tokens')}
+                />
+                <Row
+                  label={t('label.bandShare.requests')}
+                  value={bandShareText(view.bandShare, t, 'requests')}
+                />
+              </>
             )}
           </div>
         </Section>
@@ -229,7 +235,7 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
           <div className="dsu-rows">
             <Row label={t('label.turns')} value={formatCount(view.turns)} />
             <Row label={t('label.steps')} value={formatCount(view.steps)} />
-            <Row label={t('label.avgPerTurn')} value={formatTokens(avgPerTurn)} />
+            <Row label={t('label.avgPerTurn')} value={formatTokenCount(avgPerTurn)} />
             <Row label={t('label.modelTime')} value={formatDuration(view.llmMs)} />
             <Row label={t('label.toolTime')} value={formatDuration(view.toolMs)} />
             <Row label={t('label.ttft')} value={view.ttftAvgMs === null ? '—' : formatDuration(view.ttftAvgMs)} />

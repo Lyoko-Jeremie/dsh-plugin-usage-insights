@@ -9,7 +9,7 @@
 import type { JSX, ReactNode } from 'react'
 import type { BandShareView, ChildAgentView, DayTotal, StepDetailView, Translate } from './contract'
 import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
-import { formatBeijingTime, formatCount, formatMoneyRange, formatPercent, formatTokens } from '../lib/format'
+import { formatBeijingTime, formatCount, formatMoneyRange, formatPercent, formatTokenCount, formatTokens } from '../lib/format'
 import { css } from './styles'
 
 /** Clamp a 0–1 ratio and render it as a percentage width. */
@@ -169,7 +169,7 @@ export function DailyBars(props: { days: readonly DayTotal[]; t: Translate }): J
               key={day.day}
               className={empty ? 'dsu-bar dsu-bar--empty' : 'dsu-bar'}
               style={{ height: empty ? '2px' : `${height}%` }}
-              title={`${day.day} · ${formatTokens(day.totalTokens)} · ${props.t('steps.peak')} ${formatTokens(day.peakTokens)} · ${props.t('steps.offPeak')} ${formatTokens(day.offPeakTokens)}`}
+              title={`${day.day} · ${formatTokenCount(day.totalTokens)} · ${props.t('steps.peak')} ${formatTokenCount(day.peakTokens)} · ${props.t('steps.offPeak')} ${formatTokenCount(day.offPeakTokens)}`}
             >
               {!empty && (
                 <>
@@ -312,7 +312,7 @@ export function ChildAgentsTable(props: { agents: readonly ChildAgentView[]; t: 
                 {agent.title}
               </td>
               <td className="dsu-num">{formatCount(agent.requests)}</td>
-              <td className="dsu-num">{formatTokens(agent.totalTokens)}</td>
+              <td className="dsu-num">{formatTokenCount(agent.totalTokens)}</td>
               <td className="dsu-num">
                 {agent.cacheRate === null ? '—' : formatPercent(agent.cacheRate)}
               </td>
