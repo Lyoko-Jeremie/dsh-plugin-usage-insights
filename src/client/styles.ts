@@ -345,6 +345,13 @@ export const css = `
   background: var(--dsw-alias-bg-layer-2);
 }
 
+.dsu-compose-fill {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 999px;
+}
+
 .dsu-compose-seg {
   height: 100%;
   min-width: 2px;

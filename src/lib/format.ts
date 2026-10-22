@@ -9,10 +9,13 @@
 const COUNT_FORMAT = new Intl.NumberFormat('en-US')
 
 /**
- * Format a token count with a compact `k`, `M` or `B` suffix.
+ * Format a token count with a compact `K`, `M` or `G` suffix.
+ *
+ * The panel shows the scaled form everywhere; an exact figure is available as
+ * the hover title wherever the value is a headline.
  *
  * @param value - token count, normally a non-negative integer.
- * @returns `"999"`, `"1.2k"`, `"12k"`, `"1.2M"`; a negative value keeps its sign.
+ * @returns `"999"`, `"1.2K"`, `"12K"`, `"1.2M"`, `"1.5G"`; a negative value keeps its sign.
  */
 export function formatTokens(value: number): string {
   const sign = value < 0 ? '-' : ''
@@ -20,12 +23,12 @@ export function formatTokens(value: number): string {
   if (magnitude < 1_000) return `${sign}${Math.round(magnitude)}`
   if (magnitude < 1_000_000) {
     const scaled = magnitude / 1_000
-    // Three digits of a near-million round to `1000k`; report `1M` instead.
+    // Three digits of a near-million round to `1000K`; report `1M` instead.
     if (scaled >= 999.5) return `${sign}${formatScaled(magnitude / 1_000_000)}M`
-    return `${sign}${formatScaled(scaled)}k`
+    return `${sign}${formatScaled(scaled)}K`
   }
   if (magnitude < 1_000_000_000) return `${sign}${formatScaled(magnitude / 1_000_000)}M`
-  return `${sign}${formatScaled(magnitude / 1_000_000_000)}B`
+  return `${sign}${formatScaled(magnitude / 1_000_000_000)}G`
 }
 
 /**
@@ -52,9 +55,8 @@ export function formatCount(value: number): string {
 /**
  * Format a token count as an exact grouped integer.
  *
- * Token totals read as exact figures everywhere except the context window and
- * the per-request ledger, where a compact `k`/`M` unit keeps the narrow columns
- * readable.
+ * Used for hover titles: the panel shows the compact `K`/`M`/`G` form so the
+ * figures stay readable, and the exact count remains available on hover.
  *
  * @param value - token count, normally a non-negative integer.
  * @returns `"275,123,456"`.

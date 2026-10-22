@@ -7,20 +7,24 @@
  */
 import type { JSX } from 'react'
 import type { AgentTotals, HistoryPanelProps, HistoryRange } from './contract'
-import { formatCount, formatMoneyRange, formatPercent, formatTokenCount } from '../lib/format'
+import { formatCount, formatMoneyRange, formatPercent, formatTokenCount, formatTokens } from '../lib/format'
 import { bandShareText, DailyBars, InlineMessage, Row, Section, Stat, StyleTag } from './components'
 
 /**
  * Summarize one agent kind on a single line.
  *
  * @param totals - per-kind aggregation.
- * @returns measured/total conversations, tokens and cost.
+ * @returns measured/total conversations, tokens and cost, plus the exact token
+ *   count for the hover title.
  */
-function agentSummary(totals: AgentTotals): string {
+function agentSummary(totals: AgentTotals): { text: string; title: string } {
   const cost = totals.cost === null
     ? '—'
     : formatMoneyRange(totals.cost.amountMicros, totals.cost.amountMicrosMax, totals.cost.currency)
-  return `${formatCount(totals.measured)}/${formatCount(totals.sessions)} · ${formatTokenCount(totals.totalTokens)} · ${cost}`
+  return {
+    text: `${formatCount(totals.measured)}/${formatCount(totals.sessions)} · ${formatTokens(totals.totalTokens)} · ${cost}`,
+    title: formatTokenCount(totals.totalTokens),
+  }
 }
 
 /**
@@ -31,6 +35,8 @@ function agentSummary(totals: AgentTotals): string {
  */
 export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
   const { view, t, range, onRange, backfill, onBackfill } = props
+  const rootSummary = agentSummary(view.agents.root)
+  const subagentSummary = agentSummary(view.agents.subagent)
   const rangeOptions: readonly (readonly [HistoryRange, string])[] = [
     ['7d', t('history.range.7d')],
     ['30d', t('history.range.30d')],
@@ -59,7 +65,9 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
         <>
           <header className="dsu-head">
             <div className="dsu-head-main">
-              <div className="dsu-head-value">{formatTokenCount(view.totalTokens)}</div>
+              <div className="dsu-head-value" title={formatTokenCount(view.totalTokens)}>
+                {formatTokens(view.totalTokens)}
+              </div>
               <div className="dsu-head-caption">{t('history.total')}</div>
             </div>
           </header>
@@ -93,8 +101,8 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
           </div>
           <Section title={t('section.agents')}>
             <div className="dsu-rows">
-              <Row label={t('agent.root')} value={agentSummary(view.agents.root)} />
-              <Row label={t('agent.subagent')} value={agentSummary(view.agents.subagent)} />
+              <Row label={t('agent.root')} value={rootSummary.text} title={rootSummary.title} />
+              <Row label={t('agent.subagent')} value={subagentSummary.text} title={subagentSummary.title} />
             </div>
           </Section>
           {view.bandShare !== null && (

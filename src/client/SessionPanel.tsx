@@ -18,9 +18,10 @@ import {
 } from '../lib/format'
 import { peakTokenShare } from '../lib/band-share.ts'
 import {
-  bandShareText, ChildAgentsTable, CompositionBar, InlineMessage, ProgressBar, Ring, Row, Section, Stat,
-  StepTable, StyleTag,
+  bandShareText, ChildAgentsTable, CompositionBar, CompositionProgress, InlineMessage, ProgressBar, Ring, Row,
+  Section, Stat, StepTable, StyleTag,
 } from './components'
+import type { CompositionSegment } from './components'
 
 /**
  * Estimated cost line of the header.
@@ -65,6 +66,13 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
   const breakdown = view.breakdown
   const breakdownTotal =
     breakdown === null ? 0 : breakdown.systemTokens + breakdown.toolsTokens + breakdown.messageTokens
+  const composition: CompositionSegment[] = breakdown === null
+    ? []
+    : [
+      { part: 'system', label: t('context.breakdown.system'), tokens: breakdown.systemTokens },
+      { part: 'tools', label: t('context.breakdown.tools'), tokens: breakdown.toolsTokens },
+      { part: 'messages', label: t('context.breakdown.messages'), tokens: breakdown.messageTokens },
+    ]
   const avgPerTurn = view.turns > 0 ? Math.round(view.totalTokens / view.turns) : 0
   const contextLabel = context.ratio === null ? '—' : formatPercent(context.ratio)
   const peakShare = view.bandShare === null ? null : peakTokenShare(view.bandShare)
@@ -76,7 +84,9 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
         <div className="dsu-head-main">
           {view.hasUsage && (
             <>
-              <div className="dsu-head-value">{formatTokenCount(view.totalTokens)}</div>
+              <div className="dsu-head-value" title={formatTokenCount(view.totalTokens)}>
+                {formatTokens(view.totalTokens)}
+              </div>
               <div className="dsu-head-caption">{t('label.tokens')}</div>
               <CostLine cost={view.cost} basis={view.costBasis} t={t} />
             </>
@@ -121,7 +131,7 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
             <span className="dsu-steps-meta">
               {t('agent.children', { n: identity.children.count })}
               {' · '}
-              {formatTokenCount(identity.children.totalTokens)}
+              {formatTokens(identity.children.totalTokens)}
               {identity.children.cost === null
                 ? null
                 : <> {' · '}{formatMoneyRange(identity.children.cost.amountMicros, identity.children.cost.amountMicrosMax, identity.children.cost.currency)}</>}
@@ -144,8 +154,9 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
             <Stat label={t('label.requests')} value={formatCount(view.requests)} hint={t('label.requests.hint')} />
             <Stat
               label={t('label.tokens')}
-              value={formatTokenCount(view.totalTokens)}
-              hint={`${t('label.input')} ${formatTokenCount(view.buckets.uncachedInputTokens)} · ${t('label.output')} ${formatTokenCount(view.buckets.outputTokens)}`}
+              value={formatTokens(view.totalTokens)}
+              title={formatTokenCount(view.totalTokens)}
+              hint={`${t('label.input')} ${formatTokens(view.buckets.uncachedInputTokens)} · ${t('label.output')} ${formatTokens(view.buckets.outputTokens)}`}
             />
             <Stat
               label={t('label.cacheHit')}
@@ -167,10 +178,26 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
             />
           </div>
           <div className="dsu-rows">
-            <Row label={t('label.input')} value={formatTokenCount(view.buckets.uncachedInputTokens)} />
-            <Row label={t('label.cacheRead')} value={formatTokenCount(view.buckets.cacheReadTokens)} />
-            <Row label={t('label.cacheWrite')} value={formatTokenCount(view.buckets.cacheWriteTokens)} />
-            <Row label={t('label.output')} value={formatTokenCount(view.buckets.outputTokens)} />
+            <Row
+              label={t('label.input')}
+              value={formatTokens(view.buckets.uncachedInputTokens)}
+              title={formatTokenCount(view.buckets.uncachedInputTokens)}
+            />
+            <Row
+              label={t('label.cacheRead')}
+              value={formatTokens(view.buckets.cacheReadTokens)}
+              title={formatTokenCount(view.buckets.cacheReadTokens)}
+            />
+            <Row
+              label={t('label.cacheWrite')}
+              value={formatTokens(view.buckets.cacheWriteTokens)}
+              title={formatTokenCount(view.buckets.cacheWriteTokens)}
+            />
+            <Row
+              label={t('label.output')}
+              value={formatTokens(view.buckets.outputTokens)}
+              title={formatTokenCount(view.buckets.outputTokens)}
+            />
             {view.bandShare !== null && (
               <>
                 <Row
@@ -204,13 +231,10 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
                 </div>
               )}
               {context.usedTokens !== null && <ProgressBar ratio={context.ratio} />}
-              {breakdown !== null && breakdownTotal > 0 && (
-                <CompositionBar segments={[
-                  { part: 'system', label: t('context.breakdown.system'), tokens: breakdown.systemTokens },
-                  { part: 'tools', label: t('context.breakdown.tools'), tokens: breakdown.toolsTokens },
-                  { part: 'messages', label: t('context.breakdown.messages'), tokens: breakdown.messageTokens },
-                ]} />
+              {context.usedTokens !== null && breakdown !== null && breakdownTotal > 0 && (
+                <CompositionProgress ratio={context.ratio} segments={composition} />
               )}
+              {breakdown !== null && breakdownTotal > 0 && <CompositionBar segments={composition} />}
               {breakdown !== null && <div className="dsu-note">{t('context.breakdown.hint')}</div>}
             </div>
           )}
@@ -221,7 +245,11 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
           <div className="dsu-rows">
             <Row label={t('label.turns')} value={formatCount(view.turns)} />
             <Row label={t('label.steps')} value={formatCount(view.steps)} />
-            <Row label={t('label.avgPerTurn')} value={formatTokenCount(avgPerTurn)} />
+            <Row
+              label={t('label.avgPerTurn')}
+              value={formatTokens(avgPerTurn)}
+              title={formatTokenCount(avgPerTurn)}
+            />
             <Row label={t('label.modelTime')} value={formatDuration(view.llmMs)} />
             <Row label={t('label.toolTime')} value={formatDuration(view.toolMs)} />
             <Row label={t('label.ttft')} value={view.ttftAvgMs === null ? '—' : formatDuration(view.ttftAvgMs)} />

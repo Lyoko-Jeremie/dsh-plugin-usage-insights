@@ -18,13 +18,13 @@ describe('formatTokens', () => {
     expect(formatTokens(999)).toBe('999')
   })
 
-  it('scales counts between one thousand and one million with a k suffix', () => {
-    expect(formatTokens(1_000)).toBe('1k')
-    expect(formatTokens(1_234)).toBe('1.2k')
-    expect(formatTokens(9_949)).toBe('9.9k')
-    expect(formatTokens(9_960)).toBe('10k')
-    expect(formatTokens(12_345)).toBe('12k')
-    expect(formatTokens(123_456)).toBe('123k')
+  it('scales counts between one thousand and one million with a K suffix', () => {
+    expect(formatTokens(1_000)).toBe('1K')
+    expect(formatTokens(1_234)).toBe('1.2K')
+    expect(formatTokens(9_949)).toBe('9.9K')
+    expect(formatTokens(9_960)).toBe('10K')
+    expect(formatTokens(12_345)).toBe('12K')
+    expect(formatTokens(123_456)).toBe('123K')
   })
 
   it('promotes a rounding k value to the next unit', () => {
@@ -32,14 +32,14 @@ describe('formatTokens', () => {
     expect(formatTokens(1_000_000)).toBe('1M')
   })
 
-  it('uses M and B suffixes above their thresholds', () => {
+  it('uses M and G suffixes above their thresholds', () => {
     expect(formatTokens(1_234_567)).toBe('1.2M')
     expect(formatTokens(12_345_678)).toBe('12M')
-    expect(formatTokens(1_500_000_000)).toBe('1.5B')
+    expect(formatTokens(1_500_000_000)).toBe('1.5G')
   })
 
   it('keeps the sign of a negative value', () => {
-    expect(formatTokens(-1_234)).toBe('-1.2k')
+    expect(formatTokens(-1_234)).toBe('-1.2K')
   })
 })
 

@@ -48,11 +48,11 @@ export function Section(props: { title: string; aside?: ReactNode; children?: Re
  * @param props - stat label, value and hint.
  * @returns the rendered stat tile.
  */
-export function Stat(props: { label: string; value: string; hint?: string }): JSX.Element {
+export function Stat(props: { label: string; value: string; hint?: string; title?: string }): JSX.Element {
   return (
     <div className="dsu-stat">
       <div className="dsu-stat-label">{props.label}</div>
-      <div className="dsu-stat-value">{props.value}</div>
+      <div className="dsu-stat-value" title={props.title}>{props.value}</div>
       {props.hint !== undefined && <div className="dsu-stat-hint">{props.hint}</div>}
     </div>
   )
@@ -64,14 +64,14 @@ export function Stat(props: { label: string; value: string; hint?: string }): JS
  * @param props - row label, value node and optional hint.
  * @returns the rendered row.
  */
-export function Row(props: { label: string; value: ReactNode; hint?: string }): JSX.Element {
+export function Row(props: { label: string; value: ReactNode; hint?: string; title?: string }): JSX.Element {
   return (
     <div className="dsu-row">
       <div className="dsu-row-main">
         <span className="dsu-row-label">{props.label}</span>
         {props.hint !== undefined && <span className="dsu-row-hint">{props.hint}</span>}
       </div>
-      <span className="dsu-row-value">{props.value}</span>
+      <span className="dsu-row-value" title={props.title}>{props.value}</span>
     </div>
   )
 }
@@ -100,6 +100,40 @@ export interface CompositionSegment {
   /** Localized name shown in the legend. */
   label: string
   tokens: number
+}
+
+/**
+ * Occupied part of the context window, split into the composition colours.
+ *
+ * One bar carries both facts: its width is the occupancy ratio and its fill is
+ * the system / tools / messages split, so the reader sees how much of the
+ * window is used and what the used part consists of at a glance.
+ *
+ * @param props - occupancy ratio and the composition segments.
+ * @returns the rendered bar.
+ */
+export function CompositionProgress(props: {
+  ratio: number | null
+  segments: readonly CompositionSegment[]
+}): JSX.Element {
+  const ratio = props.ratio === null ? 0 : Math.min(1, Math.max(0, props.ratio))
+  const description = props.segments
+    .map(segment => `${segment.label} ${formatTokens(segment.tokens)}`)
+    .join(' · ')
+  return (
+    <div className="dsu-compose dsu-compose--progress" role="img" aria-label={description}>
+      <div className="dsu-compose-fill" style={{ width: `${ratio * 100}%` }}>
+        {props.segments.map(segment => segment.tokens > 0 && (
+          <span
+            key={segment.part}
+            className="dsu-compose-seg"
+            data-part={segment.part}
+            style={{ flexGrow: segment.tokens }}
+          />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 /**
@@ -212,7 +246,7 @@ export function DailyBars(props: { days: readonly DayTotal[]; t: Translate }): J
               key={day.day}
               className={empty ? 'dsu-bar dsu-bar--empty' : 'dsu-bar'}
               style={{ height: empty ? '2px' : `${height}%` }}
-              title={`${day.day} · ${formatTokenCount(day.totalTokens)} · ${props.t('steps.peak')} ${formatTokenCount(day.peakTokens)} · ${props.t('steps.offPeak')} ${formatTokenCount(day.offPeakTokens)}`}
+              title={`${day.day} · ${formatTokens(day.totalTokens)} · ${props.t('steps.peak')} ${formatTokens(day.peakTokens)} · ${props.t('steps.offPeak')} ${formatTokens(day.offPeakTokens)}`}
             >
               {!empty && (
                 <>
@@ -355,7 +389,7 @@ export function ChildAgentsTable(props: { agents: readonly ChildAgentView[]; t: 
                 {agent.title}
               </td>
               <td className="dsu-num">{formatCount(agent.requests)}</td>
-              <td className="dsu-num">{formatTokenCount(agent.totalTokens)}</td>
+              <td className="dsu-num" title={formatTokenCount(agent.totalTokens)}>{formatTokens(agent.totalTokens)}</td>
               <td className="dsu-num">
                 {agent.cacheRate === null ? '—' : formatPercent(agent.cacheRate)}
               </td>

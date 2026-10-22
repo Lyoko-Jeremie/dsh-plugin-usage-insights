@@ -121,15 +121,16 @@ const list = {
 
 const cases = [
   ['session: root', session, propsFor(populated, list),
-    ['154,487', '34%', '66%', '48,210', '[section.steps]', '1M', '[steps.peak]', '[agent.root]',
+    ['154K', '34%', '66%', '48K', '[section.steps]', '1M', '[steps.peak]', '[agent.root]',
       '[agent.children]', '[section.subagents]', '[agents.child]', '[steps.agent]', '#1', '#2',
       '[label.bandShare.tokens]', '[label.bandShare.requests]', '[label.bandShare.short]', 'dsu-ring--band',
-      'dsu-compose', 'dsu-progress', '[context.breakdown.system]', '[context.breakdown.tools]', '[context.breakdown.messages]']],
+      'dsu-compose', 'dsu-compose--progress', 'dsu-progress', '[context.breakdown.system]',
+      '[context.breakdown.tools]', '[context.breakdown.messages]']],
   ['session: subagent', session, propsFor(populated, list, 's2'),
     ['[agent.subagent]', '[agent.parent]']],
   ['session: empty', session, propsFor({}, list), ['[empty.noUsage]', '[agent.root]']],
   ['history: populated', history, propsFor({}, list),
-    ['1,000,000', '[history.range.7d]', '[section.agents]', '[agent.subagent]',
+    ['1M', '[history.range.7d]', '[section.agents]', '[agent.subagent]',
       '[section.bands]', '[band.byTokens]']],
   ['history: empty', history, propsFor({}, { ids: [], byId: {} }), ['[history.empty]']],
 ]
