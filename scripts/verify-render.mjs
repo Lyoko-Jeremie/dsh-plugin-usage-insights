@@ -125,7 +125,7 @@ const cases = [
       '[agent.children]', '[section.subagents]', '[agents.child]', '[steps.agent]', '#1', '#2',
       '[label.bandShare.tokens]', '[label.bandShare.requests]', '[label.bandShare.short]', 'dsu-ring--band',
       'dsu-compose', 'dsu-compose--progress', 'dsu-progress', '[context.breakdown.system]',
-      '[section.cacheHit]', '[cacheHit.total]', '[cacheHit.turn]', '[cacheHit.step]',
+      '[section.cacheHit]', '[cacheHit.total]', '[cacheHit.turn]', '[cacheHit.step]', 'dsu-hit', 'dsu-hit-fill',
       '[steps.showAll]', '[context.breakdown.tools]', '[context.breakdown.messages]']],
   ['session: subagent', session, propsFor(populated, list, 's2'),
     ['[agent.subagent]', '[agent.parent]']],

@@ -282,6 +282,75 @@ export const css = `
   color: var(--dsw-alias-label-tertiary);
 }
 
+.dsu-hits {
+  display: flex;
+  flex-direction: column;
+}
+
+.dsu-hit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 0;
+}
+
+.dsu-hit-label {
+  flex: 0 0 auto;
+  min-width: 84px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.dsu-hit-track {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.dsu-hit-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.dsu-hit-fill[data-level='good'] {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-hit-fill[data-level='warn'] {
+  background: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-hit-fill[data-level='bad'] {
+  background: var(--dsw-alias-state-error-primary);
+}
+
+.dsu-hit-value {
+  flex: 0 0 auto;
+  min-width: 46px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.dsu-hit-value[data-level='good'] {
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-hit-value[data-level='warn'] {
+  color: var(--dsw-alias-state-warn-label);
+}
+
+.dsu-hit-value[data-level='bad'] {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.dsu-hit-value[data-level='none'] {
+  color: var(--dsw-alias-label-tertiary);
+}
+
 .dsu-rows {
   display: flex;
   flex-direction: column;
