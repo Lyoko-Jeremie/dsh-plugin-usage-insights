@@ -10,7 +10,10 @@ import type { JSX, ReactNode } from 'react'
 import type { BandShareView, ChildAgentView, DayTotal, StepDetailView, Translate } from './contract'
 import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
 import { hitBarRatio, hitLevel, HIT_TICKS } from '../lib/hit-scale.ts'
-import { formatBeijingTime, formatCount, formatMoneyRange, formatPercent, formatTokenCount, formatTokens } from '../lib/format'
+import {
+  currencySymbol, formatAmountFixed, formatBeijingTime, formatCount, formatMoneyRange, formatPercent,
+  formatTokenCount, formatTokens,
+} from '../lib/format'
 import { css } from './styles'
 
 /**
@@ -360,6 +363,9 @@ export function DailyBars(props: { days: readonly DayTotal[]; t: Translate }): J
 export function StepTable(props: { steps: readonly StepDetailView[]; t: Translate }): JSX.Element {
   // The merged ledger arrives newest-first; the table renders it in that order.
   const rows = props.steps
+  // The currency is a property of the price table, so one row states it for the
+  // whole column and the cells keep digits only.
+  const currency = rows.find(step => step.cost !== null)?.cost?.currency ?? null
   return (
     <div className="dsu-steps-wrap">
       <table className="dsu-steps">
@@ -373,7 +379,11 @@ export function StepTable(props: { steps: readonly StepDetailView[]; t: Translat
             <th className="dsu-num">{props.t('steps.input')}</th>
             <th className="dsu-num">{props.t('steps.cacheRead')}</th>
             <th className="dsu-num">{props.t('steps.output')}</th>
-            <th className="dsu-num">{props.t('steps.cost')}</th>
+            <th className="dsu-num">
+              {currency === null
+                ? props.t('steps.cost')
+                : `${props.t('steps.cost')} (${currencySymbol(currency)})`}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -394,7 +404,7 @@ export function StepTable(props: { steps: readonly StepDetailView[]; t: Translat
               <td className="dsu-num">{formatTokenCount(step.cacheReadTokens)}</td>
               <td className="dsu-num">{formatTokenCount(step.outputTokens)}</td>
               <td className="dsu-num">
-                {step.cost === null ? '—' : formatMoneyRange(step.cost.amountMicros, undefined, step.cost.currency)}
+                {step.cost === null ? '—' : formatAmountFixed(step.cost.amountMicros, 6)}
               </td>
             </tr>
           ))}
