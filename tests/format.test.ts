@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  currencySymbol,
+  formatAmountFixed,
   formatBeijingTime,
   formatCount,
   formatDuration,
@@ -166,6 +168,21 @@ describe('formatMoneyFixed', () => {
   it('rounds to the requested width instead of keeping extra digits', () => {
     expect(formatMoneyFixed(12_345, 'USD', 3)).toBe('$0.012')
     expect(formatMoneyFixed(1_234_567, 'USD', 2)).toBe('$1.23')
+  })
+})
+
+describe('formatAmountFixed', () => {
+  it('keeps digits only, at a fixed fraction width', () => {
+    expect(formatAmountFixed(20_441_546, 6)).toBe('20.441546')
+    expect(formatAmountFixed(4_794, 6)).toBe('0.004794')
+    expect(formatAmountFixed(0, 6)).toBe('0.000000')
+  })
+})
+
+describe('currencySymbol', () => {
+  it('returns the narrow symbol of the code', () => {
+    expect(currencySymbol('CNY')).toBe('¥')
+    expect(currencySymbol('USD')).toBe('$')
   })
 })
 

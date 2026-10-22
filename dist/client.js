@@ -1068,14 +1068,19 @@ function formatMoney(micros, currency) {
     maximumFractionDigits: fractionDigits
   }).format(amount);
 }
-function formatMoneyFixed(micros, currency, fractionDigits) {
+function formatAmountFixed(micros, fractionDigits) {
   return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    currencyDisplay: "narrowSymbol",
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits
   }).format(micros / 1e6);
+}
+function currencySymbol(currency) {
+  const parts = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    currencyDisplay: "narrowSymbol"
+  }).formatToParts(0);
+  return parts.find((part) => part.type === "currency")?.value ?? currency;
 }
 function formatMoneyRange(micros, microsMax, currency) {
   const low = formatMoney(micros, currency);
@@ -2267,9 +2272,15 @@ function hitRateText(rate) {
 }
 function sessionCostText(cost) {
   if (cost === null) return "\u2014";
-  const low = formatMoneyFixed(cost.amountMicros, cost.currency, 6);
+  const low = formatAmountFixed(cost.amountMicros, 6);
   if (cost.amountMicrosMax === void 0 || cost.amountMicrosMax === cost.amountMicros) return low;
-  return `${low} \u2013 ${formatMoneyFixed(cost.amountMicrosMax, cost.currency, 6)}`;
+  return `${low} \u2013 ${formatAmountFixed(cost.amountMicrosMax, 6)}`;
+}
+function sessionsCurrency(sessions) {
+  for (const row of sessions) {
+    if (row.cost !== null) return row.cost.currency;
+  }
+  return null;
 }
 function HistoryPanel(props) {
   const { view, t, range, onRange, backfill, onBackfill } = props;
@@ -2281,6 +2292,7 @@ function HistoryPanel(props) {
     ["all", t("history.range.all")]
   ];
   const empty = view.totalTokens === 0 && view.sessionCount === 0;
+  const costCurrency = sessionsCurrency(view.sessions);
   return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dsu-root", children: [
     /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(StyleTag, {}),
     /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "dsu-range", role: "group", "aria-label": t("section.history"), children: rangeOptions.map(([value, label]) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
@@ -2371,7 +2383,7 @@ function HistoryPanel(props) {
             /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { children: t("sessions.kind") }),
             /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { className: "dsu-num", children: t("sessions.tokens") }),
             /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { className: "dsu-num", children: t("sessions.cache") }),
-            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { className: "dsu-num", children: t("sessions.cost") })
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("th", { className: "dsu-num", children: costCurrency === null ? t("sessions.cost") : `${t("sessions.cost")} (${currencySymbol(costCurrency)})` })
           ] }) }),
           /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("tbody", { children: view.sessions.map((row) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("tr", { children: [
             /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("td", { className: "dsu-session-title", title: row.title, children: row.title }),

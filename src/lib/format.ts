@@ -161,6 +161,38 @@ export function formatMoneyFixed(micros: number, currency: string, fractionDigit
 }
 
 /**
+ * Format an amount without its currency mark.
+ *
+ * A column that states its currency in the header keeps the cells to digits,
+ * which lines the decimal points up without a repeated symbol.
+ *
+ * @param micros - amount in micro units (1e-6 of the currency).
+ * @param fractionDigits - exact digits after the decimal point.
+ * @returns `"20.040"`.
+ */
+export function formatAmountFixed(micros: number, fractionDigits: number): string {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(micros / 1_000_000)
+}
+
+/**
+ * Read the narrow currency symbol of one ISO 4217 code.
+ *
+ * @param currency - ISO 4217 code, for example `CNY`.
+ * @returns the symbol, for example `¥`.
+ */
+export function currencySymbol(currency: string): string {
+  const parts = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    currencyDisplay: 'narrowSymbol',
+  }).formatToParts(0)
+  return parts.find(part => part.type === 'currency')?.value ?? currency
+}
+
+/**
  * Format a cost amount that may span two billing bands.
  *
  * A table with peak and off-peak rates cannot attribute a cumulative total to

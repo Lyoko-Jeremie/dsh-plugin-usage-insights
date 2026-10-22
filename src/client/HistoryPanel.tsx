@@ -6,9 +6,9 @@
  * control for conversations whose usage was never cached.
  */
 import type { JSX } from 'react'
-import type { AgentTotals, CostView, HistoryPanelProps, HistoryRange } from './contract'
+import type { AgentTotals, CostView, HistoryPanelProps, HistoryRange, HistorySessionRow } from './contract'
 import {
-  formatCount, formatMoneyFixed, formatMoneyRange, formatPercent, formatTokenCount, formatTokens,
+  currencySymbol, formatAmountFixed, formatCount, formatMoneyRange, formatPercent, formatTokenCount, formatTokens,
 } from '../lib/format'
 import { bandShareText, DailyBars, InlineMessage, Row, Section, Stat, StyleTag } from './components'
 
@@ -40,16 +40,29 @@ function hitRateText(rate: number | null): string {
 }
 
 /**
- * Render one conversation's cost with aligned decimals.
+ * Render one conversation's cost with aligned decimals, without its currency mark.
  *
  * @param cost - priced amount, or null when unpriced.
  * @returns the amount with six decimals, its two-band range, or an em dash.
  */
 function sessionCostText(cost: CostView | null): string {
   if (cost === null) return '—'
-  const low = formatMoneyFixed(cost.amountMicros, cost.currency, 6)
+  const low = formatAmountFixed(cost.amountMicros, 6)
   if (cost.amountMicrosMax === undefined || cost.amountMicrosMax === cost.amountMicros) return low
-  return `${low} – ${formatMoneyFixed(cost.amountMicrosMax, cost.currency, 6)}`
+  return `${low} – ${formatAmountFixed(cost.amountMicrosMax, 6)}`
+}
+
+/**
+ * Read the currency of the first priced conversation row.
+ *
+ * @param sessions - per-conversation rows.
+ * @returns the ISO code, or null when nothing was priced.
+ */
+function sessionsCurrency(sessions: readonly HistorySessionRow[]): string | null {
+  for (const row of sessions) {
+    if (row.cost !== null) return row.cost.currency
+  }
+  return null
 }
 
 /**
@@ -68,6 +81,7 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
     ['all', t('history.range.all')],
   ]
   const empty = view.totalTokens === 0 && view.sessionCount === 0
+  const costCurrency = sessionsCurrency(view.sessions)
   return (
     <div className="dsu-root">
       <StyleTag />
@@ -171,7 +185,11 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
                         <th>{t('sessions.kind')}</th>
                         <th className="dsu-num">{t('sessions.tokens')}</th>
                         <th className="dsu-num">{t('sessions.cache')}</th>
-                        <th className="dsu-num">{t('sessions.cost')}</th>
+                        <th className="dsu-num">
+                          {costCurrency === null
+                            ? t('sessions.cost')
+                            : `${t('sessions.cost')} (${currencySymbol(costCurrency)})`}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
