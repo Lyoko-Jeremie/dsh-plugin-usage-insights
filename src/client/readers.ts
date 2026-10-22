@@ -134,6 +134,13 @@ export function readSubagentCatalog(value: unknown): CatalogChildEntry[] | undef
   return entries
 }
 
+/** Projection value of the automatic-compaction pressure ratio. */
+export function readCompactionThreshold(value: unknown): number | null {
+  if (!isRecord(value)) return null
+  const ratio = value.thresholdRatio
+  return typeof ratio === 'number' && Number.isFinite(ratio) && ratio > 0 && ratio <= 1 ? ratio : null
+}
+
 /** Projection value of the Host's per-day, per-band rollup. */
 export function readBands(value: unknown): UsageBandsView | undefined {
   if (!isRecord(value)) return undefined

@@ -31,7 +31,9 @@ The plugin adds two right-Sidebar pages.
 - **Context window**: the first row shows used / capacity and the occupancy percentage; the
   second row is a bar filled to that occupancy; the third row combines both — its width is the
   occupancy and its three-colour fill is the composition; the fourth row is the whole-window
-  composition bar, followed by a colour legend with each part's figure.
+  composition bar, followed by a colour legend with each part's figure. When the Host can read
+  the automatic-compaction threshold, the first two bars carry an amber marker and the first row
+  says `Auto-compact 50%`.
 - **Peak/off-peak ring**: a second ring left of the context ring draws the peak share as an
   amber arc over a green off-peak track, with the peak percentage in the center (by tokens).
 - **Session metrics**: turns, steps, tokens per turn, model time, tool time, first-token
@@ -133,6 +135,7 @@ the composer button is the reliable entry.
 | Token buckets, cache-hit rate | `tokenUsage` projection | Exact provider-reported counts; the buckets are disjoint. DeepSeek reports no cache writes, so that row is hidden |
 | Context used / capacity | `contextPressure` projection | Prompt size of the newest request (or the next-request projection) and model capacity |
 | Context composition | `contextBreakdown` projection | Heuristic system / tools / messages estimate, not billed tokens |
+| Auto-compaction threshold | This plugin's `usageCompaction` projection | Reads `thresholdRatio` from the resolved `compaction` service config; the optional `compactionThreshold` setting covers compositions where it is unreachable |
 | Turns, steps, model/tool time, first token, decode speed | `sessionStats` projection | Whole durable log; paging and compaction do not change it |
 | Request table, band, exact cost | This plugin's `usageSteps` / `usageBands` | Folds `step/start`, `assistant/message`, and `assistant/attempt` |
 | Cost | Built-in price table | See *Pricing* below |
@@ -255,8 +258,9 @@ disabled if you do not want the network dependency.
       name: dsh-usage-insights
       config:
         stepHistory: 200            # requests folded and checkpointed
-        stepWindow: 20              # requests the panel shows
+        stepWindow: 200             # requests published to the Client ("Show all")
         bandDays: 90                # daily rollup rows retained
+        compactionThreshold: 0.5    # optional fallback when no backend ratio is readable
         useBuiltinHolidays: true    # use the bundled 2025-2026 calendar
         holidays: []                # extra holiday days, YYYY-MM-DD
         holidayRanges: []           # extra spans, YYYY-MM-DD..YYYY-MM-DD

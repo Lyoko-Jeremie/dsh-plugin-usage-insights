@@ -87,6 +87,7 @@ export const en = {
   'context.breakdown.tools': 'Tools',
   'context.breakdown.messages': 'Messages',
   'context.breakdown.hint': 'Approximate composition',
+  'context.compaction': 'Auto-compact',
   'context.capacityUnknown': 'This model declares no context capacity',
   'context.notReported': 'No request has reported usage yet',
 

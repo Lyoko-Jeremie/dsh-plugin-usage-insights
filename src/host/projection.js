@@ -24,6 +24,11 @@
 import { z } from 'zod'
 import { bandAt, beijingDay } from '../shared/band.js'
 
+/** Client-visible resolved compaction pressure, or null without a backend. */
+const compactionViewSchema = z.object({
+  thresholdRatio: z.number().min(0).max(1).nullable(),
+}).strict()
+
 /** Token buckets a request carries. */
 const bucketsSchema = z.object({
   uncachedInputTokens: z.number().int().nonnegative(),
@@ -422,6 +427,49 @@ export function createUsageBandsProjection(config) {
           offPeak: flatten(state.total.offPeak),
         },
       }),
+    },
+  }
+}
+
+/**
+ * Create the `usageCompaction` unit.
+ *
+ * The automatic-compaction pressure ratio is not a session fact: it comes from
+ * the backend's resolved configuration, so no event can carry it and replay
+ * cannot reproduce an older value. The unit therefore republishes the ratio the
+ * Host most recently observed when an Agent was created; a conversation opened
+ * before that observation keeps null and simply shows no pressure line.
+ *
+ * @returns the unit with its update entry point and projection definition.
+ */
+export function createCompactionThresholdUnit() {
+  let thresholdRatio = null
+  const state = () => ({ thresholdRatio })
+  return {
+    /**
+     * Record the ratio a compaction backend resolved for a new Agent.
+     *
+     * @param ratio - resolved threshold ratio, or a value outside (0, 1] to clear it.
+     * @returns whether the published value changed.
+     */
+    set(ratio) {
+      const next = typeof ratio === 'number' && Number.isFinite(ratio) && ratio > 0 && ratio <= 1
+        ? ratio
+        : null
+      if (next === thresholdRatio) return false
+      thresholdRatio = next
+      return true
+    },
+    definition: {
+      key: 'usageCompaction',
+      stateVersion: 1,
+      stateSchema: compactionViewSchema,
+      init: state,
+      apply: current => current.thresholdRatio === thresholdRatio ? current : state(),
+      wire: {
+        viewSchema: compactionViewSchema,
+        view: current => ({ thresholdRatio: current.thresholdRatio }),
+      },
     },
   }
 }

@@ -20,8 +20,8 @@ import { HistoryPanel } from './HistoryPanel.tsx'
 import { SessionPanel } from './SessionPanel.tsx'
 import type { SessionListSnapshot, SessionScopedProps, SessionSummaryLike } from './runtime.ts'
 import {
-  readBands, readBreakdown, readContextPressure, readModelSelection, readSessionStats, readSteps,
-  readSubagentCatalog, readTokenUsage,
+  readBands, readBreakdown, readCompactionThreshold, readContextPressure, readModelSelection, readSessionStats,
+  readSteps, readSubagentCatalog, readTokenUsage,
 } from './readers.ts'
 
 /** How many projection reads the backfill keeps in flight. */
@@ -54,6 +54,7 @@ export function UsagePanelBody(props: SessionScopedProps) {
   const modelSelection = props.useProjection('modelSelection')
   const usageSteps = props.useProjection('usageSteps')
   const usageBands = props.useProjection('usageBands')
+  const usageCompaction = props.useProjection('usageCompaction')
   const running = props.useSession(snapshot => snapshot.running)
   // The ledger opens on the newest window; the switch reveals every row the
   // Host published for this delegation tree.
@@ -89,8 +90,9 @@ export function UsagePanelBody(props: SessionScopedProps) {
     modelSelection: readModelSelection(modelSelection),
     steps: readSteps(usageSteps),
     bands: readBands(usageBands),
+    compaction: { thresholdRatio: readCompactionThreshold(usageCompaction) },
     pricing: PRICING,
-  }), [tokenUsage, contextPressure, contextBreakdown, sessionStats, modelSelection, usageSteps, usageBands])
+  }), [tokenUsage, contextPressure, contextBreakdown, sessionStats, modelSelection, usageSteps, usageBands, usageCompaction])
 
   // Delegation identity comes from the session list, not from a projection: a
   // Root and a delegated Session are told apart by the summary's `origin` and

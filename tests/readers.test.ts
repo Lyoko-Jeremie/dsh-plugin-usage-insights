@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  readBreakdown, readContextPressure, readModelSelection, readSessionStats, readSubagentCatalog,
-  readTokenUsage,
+  readBreakdown, readCompactionThreshold, readContextPressure, readModelSelection, readSessionStats,
+  readSubagentCatalog, readTokenUsage,
 } from '../src/client/readers.ts'
 
 describe('readTokenUsage', () => {
@@ -70,6 +70,21 @@ describe('readModelSelection', () => {
     expect(readModelSelection({ lastUsed: null, next: null })).toEqual({ lastUsed: null, next: null })
     expect(readModelSelection({})).toEqual({ lastUsed: null, next: null })
     expect(readModelSelection({ next: { provider: '', model: 'x' } })?.next).toBeNull()
+  })
+})
+
+describe('readCompactionThreshold', () => {
+  it('reads a ratio inside the open unit interval', () => {
+    expect(readCompactionThreshold({ thresholdRatio: 0.5 })).toBe(0.5)
+    expect(readCompactionThreshold({ thresholdRatio: 1 })).toBe(1)
+  })
+
+  it('rejects an absent or out-of-range value', () => {
+    expect(readCompactionThreshold(undefined)).toBeNull()
+    expect(readCompactionThreshold({})).toBeNull()
+    expect(readCompactionThreshold({ thresholdRatio: 0 })).toBeNull()
+    expect(readCompactionThreshold({ thresholdRatio: 1.5 })).toBeNull()
+    expect(readCompactionThreshold({ thresholdRatio: null })).toBeNull()
   })
 })
 

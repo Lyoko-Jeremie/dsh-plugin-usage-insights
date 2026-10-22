@@ -12,7 +12,8 @@
  * `holiday-cn` dataset at startup.
  */
 import { z } from 'zod'
-import { createUsageBandsProjection, createUsageStepsProjection } from './src/host/projection.js'
+import { createCompactionThresholdUnit, createUsageBandsProjection, createUsageStepsProjection } from './src/host/projection.js'
+import { watchCompactionThreshold } from './src/host/compaction.js'
 import { fetchRemoteHolidays, resolveHolidays, syncYears, unionDays } from './src/host/holidays.js'
 
 /** The projections this plugin folds. */
@@ -42,6 +43,11 @@ export const Config = z.object({
   holidays: z.array(z.string()).default([]),
   /** Extra statutory holiday spans as Beijing `YYYY-MM-DD..YYYY-MM-DD`. */
   holidayRanges: z.array(z.string()).default([]),
+  /**
+   * Manual automatic-compaction pressure ratio, used when no backend exposes
+   * one. The panel draws this line in the context window.
+   */
+  compactionThreshold: z.number().min(0).max(1).optional(),
   /** Optional live refresh of the holiday calendar at startup. */
   holidaySync: z.object({
     enabled: z.boolean().default(false),
@@ -57,7 +63,7 @@ export const Config = z.object({
 
 /**
  * Host plugin body: resolve the holiday calendar, optionally refresh it, then
- * register the per-step and per-band projection units.
+ * register the per-step, per-band and compaction-threshold projection units.
  *
  * @param ctx - Host root context.
  * @param config - validated plugin configuration.
@@ -95,4 +101,16 @@ export async function apply(ctx, config = {}) {
     () => ctx.sessionProjections.register(createUsageBandsProjection(settings)),
     'usage-insights: usageBands projection',
   )
+
+  // The automatic-compaction threshold lives only in the backend's resolved
+  // configuration, which no session projection publishes. Read it when an
+  // Agent is created and republish it so the context window can draw the
+  // pressure line that triggers compaction.
+  const compaction = createCompactionThresholdUnit()
+  if (config.compactionThreshold !== undefined) compaction.set(config.compactionThreshold)
+  ctx.effect(
+    () => ctx.sessionProjections.register(compaction.definition),
+    'usage-insights: usageCompaction projection',
+  )
+  watchCompactionThreshold(ctx, compaction.set)
 }

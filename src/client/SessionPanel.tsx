@@ -227,12 +227,23 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
                     {formatTokens(context.usedTokens)} <span className="dsu-ctx-sep">/</span>{' '}
                     {formatTokens(context.windowTokens)}
                   </span>
-                  <span className="dsu-ctx-pct">{contextLabel}</span>
+                  <span className="dsu-ctx-pct">
+                    {contextLabel}
+                    {view.compactionThreshold !== null && (
+                      <> {' · '}{t('context.compaction')} {formatPercent(view.compactionThreshold)}</>
+                    )}
+                  </span>
                 </div>
               )}
-              {context.usedTokens !== null && <ProgressBar ratio={context.ratio} />}
+              {context.usedTokens !== null && (
+                <ProgressBar ratio={context.ratio} marker={view.compactionThreshold} />
+              )}
               {context.usedTokens !== null && breakdown !== null && breakdownTotal > 0 && (
-                <CompositionProgress ratio={context.ratio} segments={composition} />
+                <CompositionProgress
+                  ratio={context.ratio}
+                  segments={composition}
+                  marker={view.compactionThreshold}
+                />
               )}
               {breakdown !== null && breakdownTotal > 0 && <CompositionBar segments={composition} />}
               {breakdown !== null && <div className="dsu-note">{t('context.breakdown.hint')}</div>}

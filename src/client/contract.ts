@@ -221,6 +221,11 @@ export interface SessionUsageView {
   stepActivity: StepActivityView | null
   /** Peak/off-peak split of the same conversation; null without a band rollup. */
   bandShare: BandShareView | null
+  /**
+   * Resolved automatic-compaction pressure as a fraction of the context window,
+   * or null when no compaction backend exposed one.
+   */
+  compactionThreshold: number | null
   /** False until the first provider usage lands. */
   hasUsage: boolean
 }

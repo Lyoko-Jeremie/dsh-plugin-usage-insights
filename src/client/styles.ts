@@ -422,6 +422,7 @@ export const css = `
 }
 
 .dsu-progress {
+  position: relative;
   width: 100%;
   height: 6px;
   overflow: hidden;
@@ -435,7 +436,19 @@ export const css = `
   background: var(--dsw-alias-brand-primary);
 }
 
+.dsu-progress-marker,
+.dsu-compose-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-1px);
+  border-radius: 1px;
+  background: var(--dsw-alias-state-warn-primary);
+}
+
 .dsu-compose {
+  position: relative;
   display: flex;
   width: 100%;
   height: 8px;

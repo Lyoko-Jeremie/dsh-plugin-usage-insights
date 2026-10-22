@@ -69,6 +69,7 @@ const populated = {
   },
   contextPressure: { pressureTokens: 43000, projectedTokens: 43600, contextWindow: 128000 },
   contextBreakdown: { systemTokens: 6200, toolsTokens: 12800, messageTokens: 24600 },
+  usageCompaction: { thresholdRatio: 0.8 },
   sessionStats: {
     turns: 12, steps: 31, llmMs: 123000, toolMs: 45000, ttftMs: 37200, ttftSteps: 31,
     decodeMs: 84000, decodeTokens: 9077,
@@ -124,7 +125,8 @@ const cases = [
     ['154K', '34%', '66%', '48,210', '[section.steps]', '1,000,000', '[steps.peak]', '[agent.root]',
       '[agent.children]', '[section.subagents]', '[agents.child]', '[steps.agent]', '#1', '#2',
       '[label.bandShare.tokens]', '[label.bandShare.requests]', '[label.bandShare.short]', 'dsu-ring--band',
-      'dsu-compose', 'dsu-compose--progress', 'dsu-progress', '[context.breakdown.system]',
+      'dsu-compose', 'dsu-compose--progress', 'dsu-progress', 'dsu-progress-marker',
+      '[context.compaction]', '[context.breakdown.system]',
       '[section.cacheHit]', '[cacheHit.total]', '[cacheHit.turn]', '[cacheHit.step]', 'dsu-hit', 'dsu-hit-fill',
       'dsu-hit-tick', 'dsu-hit-grid',
       '[steps.showAll]', '[context.breakdown.tools]', '[context.breakdown.messages]']],

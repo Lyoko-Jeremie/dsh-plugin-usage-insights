@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createCompactionThresholdUnit,
   createUsageBandsProjection,
   createUsageStepsProjection,
   emptyBandsState,
@@ -120,6 +121,31 @@ describe('usageSteps fold', () => {
     expect(view.steps.map(step => step.turn)).toEqual([3, 4])
     expect(view.omittedSteps).toBe(2)
     expect(definition.wire.viewSchema.parse(view)).toEqual(view)
+  })
+})
+
+describe('usageCompaction unit', () => {
+  it('starts without a threshold and publishes the observed ratio', () => {
+    const unit = createCompactionThresholdUnit()
+    const definition = unit.definition
+    expect(definition.wire.view(definition.init())).toEqual({ thresholdRatio: null })
+
+    expect(unit.set(0.5)).toBe(true)
+    expect(definition.wire.view(definition.init())).toEqual({ thresholdRatio: 0.5 })
+
+    // Replaying an event republishes the latest observed ratio.
+    const state = definition.apply(definition.init(), started(1, 1, 0))
+    expect(definition.wire.view(state)).toEqual({ thresholdRatio: 0.5 })
+    expect(definition.wire.viewSchema.parse(definition.wire.view(state))).toEqual({ thresholdRatio: 0.5 })
+  })
+
+  it('ignores an unchanged or invalid ratio', () => {
+    const unit = createCompactionThresholdUnit()
+    expect(unit.set(0.8)).toBe(true)
+    expect(unit.set(0.8)).toBe(false)
+    expect(unit.set(0)).toBe(true)
+    expect(unit.definition.wire.view(unit.definition.init())).toEqual({ thresholdRatio: null })
+    expect(unit.set(2)).toBe(false)
   })
 })
 

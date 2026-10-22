@@ -41,6 +41,8 @@ export interface SessionUsageInput {
   steps?: { steps: readonly UsageStepView[]; totalSteps: number; omittedSteps: number } | null
   /** Raw `usageBands` view, when the Host projection is mounted. */
   bands?: UsageBandsView | null
+  /** Resolved automatic-compaction pressure ratio, when a backend exposed one. */
+  compaction?: { thresholdRatio: number | null }
   /** Plugin-owned price table. */
   pricing: PricingTable
 }
@@ -86,6 +88,7 @@ export function deriveSessionUsage(input: SessionUsageInput): SessionUsageView {
     costBasis: priced.basis,
     stepActivity: steps,
     bandShare: bandShareOf(input.bands),
+    compactionThreshold: input.compaction?.thresholdRatio ?? null,
     hasUsage: totalTokens > 0,
   }
 }

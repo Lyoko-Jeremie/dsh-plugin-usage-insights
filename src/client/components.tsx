@@ -78,16 +78,20 @@ export function Row(props: { label: string; value: ReactNode; hint?: string; tit
 }
 
 /**
- * Single-value progress bar.
+ * Single-value progress bar with an optional threshold marker.
  *
- * @param props - ratio in [0, 1], or null for an unknown value.
+ * @param props - ratio in [0, 1] or null, plus an optional marker position.
  * @returns the rendered bar.
  */
-export function ProgressBar(props: { ratio: number | null }): JSX.Element {
+export function ProgressBar(props: { ratio: number | null; marker?: number | null }): JSX.Element {
   const ratio = props.ratio === null ? 0 : Math.min(1, Math.max(0, props.ratio))
+  const marker = props.marker === null || props.marker === undefined
+    ? null
+    : Math.min(1, Math.max(0, props.marker))
   return (
     <div className="dsu-progress" role="img" aria-label={formatPercent(ratio)}>
       <div className="dsu-progress-fill" style={{ width: `${ratio * 100}%` }} />
+      {marker !== null && <span className="dsu-progress-marker" style={{ left: `${marker * 100}%` }} />}
     </div>
   )
 }
@@ -164,16 +168,21 @@ export interface CompositionSegment {
  *
  * One bar carries both facts: its width is the occupancy ratio and its fill is
  * the system / tools / messages split, so the reader sees how much of the
- * window is used and what the used part consists of at a glance.
+ * window is used and what the used part consists of at a glance. An optional
+ * marker shows the automatic-compaction pressure point.
  *
- * @param props - occupancy ratio and the composition segments.
+ * @param props - occupancy ratio, composition segments and an optional marker.
  * @returns the rendered bar.
  */
 export function CompositionProgress(props: {
   ratio: number | null
   segments: readonly CompositionSegment[]
+  marker?: number | null
 }): JSX.Element {
   const ratio = props.ratio === null ? 0 : Math.min(1, Math.max(0, props.ratio))
+  const marker = props.marker === null || props.marker === undefined
+    ? null
+    : Math.min(1, Math.max(0, props.marker))
   const description = props.segments
     .map(segment => `${segment.label} ${formatTokens(segment.tokens)}`)
     .join(' · ')
@@ -189,6 +198,7 @@ export function CompositionProgress(props: {
           />
         ))}
       </div>
+      {marker !== null && <span className="dsu-compose-marker" style={{ left: `${marker * 100}%` }} />}
     </div>
   )
 }
