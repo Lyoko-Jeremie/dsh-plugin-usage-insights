@@ -9,6 +9,7 @@ import {
   formatMoneyFixed,
   formatMoneyRange,
   formatPercent,
+  formatPercentFixed,
   formatTokenCount,
   formatTokens,
   formatTokensPerSecond,
@@ -85,6 +86,24 @@ describe('formatPercent', () => {
     expect(formatPercent(1)).toBe('100%')
     expect(formatPercent(1.4)).toBe('100%')
     expect(formatPercent(-0.2)).toBe('0%')
+  })
+})
+
+describe('formatPercentFixed', () => {
+  it('keeps exactly the requested decimals', () => {
+    expect(formatPercentFixed(0.996, 3)).toBe('99.600%')
+    expect(formatPercentFixed(0.5, 3)).toBe('50.000%')
+    expect(formatPercentFixed(1, 3)).toBe('100.000%')
+  })
+
+  it('keeps near-full ratios distinct from 100%', () => {
+    expect(formatPercentFixed(0.99996, 3)).toBe('99.996%')
+    expect(formatPercentFixed(0.9999, 3)).toBe('99.990%')
+  })
+
+  it('clamps ratios outside the unit interval', () => {
+    expect(formatPercentFixed(1.4, 3)).toBe('100.000%')
+    expect(formatPercentFixed(-0.2, 3)).toBe('0.000%')
   })
 })
 

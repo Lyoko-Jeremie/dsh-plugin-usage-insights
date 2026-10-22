@@ -81,6 +81,21 @@ export function formatPercent(ratio: number): string {
 }
 
 /**
+ * Format a ratio as a percentage with a fixed number of decimals.
+ *
+ * The cache-hit bars print three decimals so the near-100% differences stay
+ * readable next to the non-linear tick ruler.
+ *
+ * @param ratio - fraction of a whole; values outside [0, 1] are clamped.
+ * @param fractionDigits - exact digits after the decimal point.
+ * @returns `"99.600%"`, `"100.000%"`.
+ */
+export function formatPercentFixed(ratio: number, fractionDigits: number): string {
+  const clamped = Math.min(1, Math.max(0, ratio))
+  return `${(clamped * 100).toFixed(fractionDigits)}%`
+}
+
+/**
  * Format a duration in milliseconds for a metrics tile.
  *
  * @param ms - elapsed milliseconds; negative input reads as zero.

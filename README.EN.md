@@ -22,8 +22,10 @@ The plugin adds two right-Sidebar pages.
   cache-hit rate, cost, and the peak/off-peak share (one row by tokens, one by requests).
 - **Cache hit**: three bars for the cumulative, current-turn and latest-request hit rates. The
   fill uses a power scale (`1-(1-r)^0.3`) so the region above 90% keeps its differences, with a
-  50% / 90% / 99% ruler and matching tick lines cut into each bar; the percentage is coloured by
-  status: green at 90% or above, amber from 70%, red below.
+  50% / 70% / 85% / 95% / 99% / 99.9% ruler and matching tick lines cut into each bar — the
+  uneven gaps make the non-linear axis visible. The percentage keeps three decimals (for
+  example `99.618%`) and is coloured by status: green at 90% or above, amber from 70%, red
+  below.
 - **Token figures**: the overview's Token card (including its input/output hint) uses compact
   `K` / `M` / `G` units; the remaining overview rows, session metrics, subagent detail and
   request ledger show exact grouped integers (for example `275,123,456`); the header total,

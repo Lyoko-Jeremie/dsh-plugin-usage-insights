@@ -12,21 +12,22 @@
 export const HIT_SCALE_EXPONENT = 0.3
 
 /**
- * Lowest rate whose one-decimal label reads as 100%.
+ * Lowest rate whose three-decimal label reads as 100%.
  *
- * The label keeps one decimal near the top, so a fill that stopped short of the
- * bar's end would contradict an "100.0%" figure. From this rate upward the bar
- * therefore fills completely.
+ * The label keeps three decimals near the top, so a fill that stopped short of
+ * the bar's end would contradict a "100.000%" figure. From this rate upward the
+ * bar therefore fills completely.
  */
-export const FULL_HIT_RATIO = 0.9995
+export const FULL_HIT_RATIO = 0.9999995
 
 /**
  * Reference marks on the cache-hit bars.
  *
- * Three points are enough to read the non-linear scale: half of the input
- * cached, the comfortable 90% line, and the near-full 99% line.
+ * Six points make the non-linear spacing visible: the gaps shrink toward the
+ * top, so the bar cannot be read as a linear percentage axis. The marks cover
+ * the usual 50–99.9% band while keeping every label apart on the track.
  */
-export const HIT_TICKS = [0.5, 0.9, 0.99] as const
+export const HIT_TICKS = [0.5, 0.7, 0.85, 0.95, 0.99, 0.999] as const
 
 /** Status band of one cache-hit rate. */
 export type HitLevel = 'good' | 'warn' | 'bad' | 'none'

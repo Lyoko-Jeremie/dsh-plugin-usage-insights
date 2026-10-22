@@ -3,9 +3,18 @@ import { FULL_HIT_RATIO, HIT_SCALE_EXPONENT, HIT_TICKS, hitBarRatio, hitLevel } 
 
 describe('HIT_TICKS', () => {
   it('marks ascending reference points inside the range', () => {
-    expect([...HIT_TICKS]).toEqual([0.5, 0.9, 0.99])
+    expect([...HIT_TICKS]).toEqual([0.5, 0.7, 0.85, 0.95, 0.99, 0.999])
     expect([...HIT_TICKS].every(tick => tick > 0 && tick < 1)).toBe(true)
     expect([...HIT_TICKS].every((tick, index, ticks) => index === 0 || ticks[index - 1]! < tick)).toBe(true)
+  })
+
+  it('shows the non-linear spacing through denser marks near the top', () => {
+    const positions = HIT_TICKS.map(tick => hitBarRatio(tick))
+    const gaps = positions.slice(1).map((position, index) => position - positions[index]!)
+    // Unequal gaps: the track cannot be read as a linear percentage axis.
+    expect(Math.max(...gaps) / Math.min(...gaps)).toBeGreaterThan(1.2)
+    // Every mark sits left of where a linear axis would put it.
+    for (const tick of HIT_TICKS) expect(hitBarRatio(tick)).toBeLessThan(tick)
   })
 })
 
@@ -20,10 +29,11 @@ describe('hitBarRatio', () => {
     expect(hitBarRatio(2)).toBe(1)
   })
 
-  it('fills the bar once the label reads as 100%', () => {
+  it('fills the bar only when the label reads a full 100%', () => {
     expect(hitBarRatio(FULL_HIT_RATIO)).toBe(1)
-    expect(hitBarRatio(0.9999)).toBe(1)
-    // Just below the rounding boundary the fill still stops short.
+    expect(hitBarRatio(1)).toBe(1)
+    // Three decimals keep 99.9999% distinct from 100%, so the fill stops short.
+    expect(hitBarRatio(0.9999)).toBeLessThan(1)
     expect(hitBarRatio(0.999)).toBeLessThan(1)
   })
 

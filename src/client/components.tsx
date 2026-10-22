@@ -12,7 +12,7 @@ import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
 import { hitBarRatio, hitLevel, HIT_TICKS } from '../lib/hit-scale.ts'
 import {
   currencySymbol, formatAmountFixed, formatBeijingTime, formatCount, formatMoneyRange, formatPercent,
-  formatTokenCount, formatTokens,
+  formatPercentFixed, formatTokenCount, formatTokens,
 } from '../lib/format'
 import { css } from './styles'
 
@@ -125,7 +125,7 @@ export function HitBar(props: { label: string; ratio: number | null }): JSX.Elem
         )}
       </div>
       <span className="dsu-hit-value" data-level={level}>
-        {props.ratio === null ? '—' : formatPercent(props.ratio)}
+        {props.ratio === null ? '—' : formatPercentFixed(props.ratio, 3)}
       </span>
     </div>
   )
