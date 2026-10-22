@@ -125,6 +125,21 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
               />
             </div>
           </Section>
+          {view.bandShare !== null && (
+            <Section title={t('section.bands')}>
+              <div className="dsu-rows">
+                <Row label={t('band.byTokens')} value={bandShareText(view.bandShare, t, 'tokens')} />
+                <Row label={t('band.byRequests')} value={bandShareText(view.bandShare, t, 'requests')} />
+              </div>
+              {view.bandSharePartial && <div className="dsu-note">{t('band.partial')}</div>}
+            </Section>
+          )}
+          <Section title={t('history.daily')}>
+            <DailyBars days={view.days} t={t} />
+            <div className="dsu-note">
+              {view.costBasis === 'bands' ? t('history.daily.bandsNote') : t('history.daily.note')}
+            </div>
+          </Section>
           {view.sessions.length > 0 && (
             <details className="dsu-steps-details">
               <summary className="dsu-steps-summary">
@@ -166,21 +181,6 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
               </div>
             </details>
           )}
-          {view.bandShare !== null && (
-            <Section title={t('section.bands')}>
-              <div className="dsu-rows">
-                <Row label={t('band.byTokens')} value={bandShareText(view.bandShare, t, 'tokens')} />
-                <Row label={t('band.byRequests')} value={bandShareText(view.bandShare, t, 'requests')} />
-              </div>
-              {view.bandSharePartial && <div className="dsu-note">{t('band.partial')}</div>}
-            </Section>
-          )}
-          <Section title={t('history.daily')}>
-            <DailyBars days={view.days} t={t} />
-            <div className="dsu-note">
-              {view.costBasis === 'bands' ? t('history.daily.bandsNote') : t('history.daily.note')}
-            </div>
-          </Section>
           {view.missingCount + view.fallbackCount > 0 && (
             <InlineMessage tone="warn">
               <div className="dsu-inline-action">
