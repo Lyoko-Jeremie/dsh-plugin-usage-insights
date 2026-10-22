@@ -126,6 +126,7 @@ const cases = [
       '[label.bandShare.tokens]', '[label.bandShare.requests]', '[label.bandShare.short]', 'dsu-ring--band',
       'dsu-compose', 'dsu-compose--progress', 'dsu-progress', '[context.breakdown.system]',
       '[section.cacheHit]', '[cacheHit.total]', '[cacheHit.turn]', '[cacheHit.step]', 'dsu-hit', 'dsu-hit-fill',
+      'dsu-hit-tick', 'dsu-hit-grid',
       '[steps.showAll]', '[context.breakdown.tools]', '[context.breakdown.messages]']],
   ['session: subagent', session, propsFor(populated, list, 's2'),
     ['[agent.subagent]', '[agent.parent]']],

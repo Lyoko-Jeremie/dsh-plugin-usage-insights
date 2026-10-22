@@ -11,6 +11,14 @@
 /** Power used by {@link hitBarRatio}; smaller values spread the high end wider. */
 export const HIT_SCALE_EXPONENT = 0.3
 
+/**
+ * Reference marks on the cache-hit bars.
+ *
+ * Three points are enough to read the non-linear scale: half of the input
+ * cached, the comfortable 90% line, and the near-full 99% line.
+ */
+export const HIT_TICKS = [0.5, 0.9, 0.99] as const
+
 /** Status band of one cache-hit rate. */
 export type HitLevel = 'good' | 'warn' | 'bad' | 'none'
 

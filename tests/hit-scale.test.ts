@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { HIT_SCALE_EXPONENT, hitBarRatio, hitLevel } from '../src/lib/hit-scale.ts'
+import { HIT_SCALE_EXPONENT, HIT_TICKS, hitBarRatio, hitLevel } from '../src/lib/hit-scale.ts'
+
+describe('HIT_TICKS', () => {
+  it('marks ascending reference points inside the range', () => {
+    expect([...HIT_TICKS]).toEqual([0.5, 0.9, 0.99])
+    expect([...HIT_TICKS].every(tick => tick > 0 && tick < 1)).toBe(true)
+    expect([...HIT_TICKS].every((tick, index, ticks) => index === 0 || ticks[index - 1]! < tick)).toBe(true)
+  })
+})
 
 describe('hitBarRatio', () => {
   it('keeps both endpoints', () => {

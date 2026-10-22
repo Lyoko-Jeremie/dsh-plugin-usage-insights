@@ -18,8 +18,8 @@ import {
 } from '../lib/format'
 import { peakTokenShare } from '../lib/band-share.ts'
 import {
-  bandShareText, ChildAgentsTable, CompositionBar, CompositionProgress, HitBar, InlineMessage, ProgressBar,
-  Ring, Row, Section, Stat, StepTable, StyleTag,
+  bandShareText, ChildAgentsTable, CompositionBar, CompositionProgress, HitBar, HitRuler, InlineMessage,
+  ProgressBar, Ring, Row, Section, Stat, StepTable, StyleTag,
 } from './components'
 import type { CompositionSegment } from './components'
 
@@ -206,6 +206,7 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
       {view.hasUsage && (
         <Section title={t('section.cacheHit')}>
           <div className="dsu-hits">
+            <HitRuler />
             <HitBar label={t('cacheHit.total')} ratio={view.cacheHits.total} />
             <HitBar label={t('cacheHit.turn')} ratio={view.cacheHits.turn} />
             <HitBar label={t('cacheHit.step')} ratio={view.cacheHits.step} />

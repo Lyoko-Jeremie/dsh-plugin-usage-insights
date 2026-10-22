@@ -302,12 +302,42 @@ export const css = `
 }
 
 .dsu-hit-track {
+  position: relative;
   flex: 1 1 auto;
   min-width: 0;
   height: 8px;
   overflow: hidden;
   border-radius: 999px;
   background: var(--dsw-alias-bg-layer-2);
+}
+
+.dsu-hit-grid {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.dsu-hit--ruler {
+  padding-bottom: 0;
+}
+
+.dsu-hit-track--ruler {
+  height: 14px;
+  overflow: visible;
+  background: transparent;
+}
+
+.dsu-hit-tick {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 
 .dsu-hit-fill {

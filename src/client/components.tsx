@@ -9,7 +9,7 @@
 import type { JSX, ReactNode } from 'react'
 import type { BandShareView, ChildAgentView, DayTotal, StepDetailView, Translate } from './contract'
 import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
-import { hitBarRatio, hitLevel } from '../lib/hit-scale.ts'
+import { hitBarRatio, hitLevel, HIT_TICKS } from '../lib/hit-scale.ts'
 import { formatBeijingTime, formatCount, formatMoneyRange, formatPercent, formatTokenCount, formatTokens } from '../lib/format'
 import { css } from './styles'
 
@@ -96,7 +96,9 @@ export function ProgressBar(props: { ratio: number | null }): JSX.Element {
  * Cache-hit bar with its percentage.
  *
  * The fill uses the non-linear scale from `hit-scale` so rates above 90% keep
- * their differences visible; the percentage carries the status colour.
+ * their differences visible; the percentage carries the status colour. Reference
+ * ticks from the same scale are cut into the fill so a length can be read back
+ * as a percentage.
  *
  * @param props - row label and the hit ratio, or null without usage.
  * @returns the rendered bar.
@@ -108,6 +110,9 @@ export function HitBar(props: { label: string; ratio: number | null }): JSX.Elem
     <div className="dsu-hit">
       <span className="dsu-hit-label">{props.label}</span>
       <div className="dsu-hit-track">
+        {HIT_TICKS.map(tick => (
+          <span key={tick} className="dsu-hit-grid" style={{ left: `${hitBarRatio(tick) * 100}%` }} />
+        ))}
         {props.ratio !== null && (
           <div className="dsu-hit-fill" data-level={level} style={{ width: `${width * 100}%` }} />
         )}
@@ -115,6 +120,30 @@ export function HitBar(props: { label: string; ratio: number | null }): JSX.Elem
       <span className="dsu-hit-value" data-level={level}>
         {props.ratio === null ? '—' : formatPercent(props.ratio)}
       </span>
+    </div>
+  )
+}
+
+/**
+ * Ruler shared by the cache-hit bars.
+ *
+ * Sits above them with the same label/track/value structure, so every tick
+ * label lands exactly above the line cut into each bar.
+ *
+ * @returns the rendered ruler row.
+ */
+export function HitRuler(): JSX.Element {
+  return (
+    <div className="dsu-hit dsu-hit--ruler" aria-hidden="true">
+      <span className="dsu-hit-label" />
+      <div className="dsu-hit-track dsu-hit-track--ruler">
+        {HIT_TICKS.map(tick => (
+          <span key={tick} className="dsu-hit-tick" style={{ left: `${hitBarRatio(tick) * 100}%` }}>
+            {formatPercent(tick)}
+          </span>
+        ))}
+      </div>
+      <span className="dsu-hit-value" />
     </div>
   )
 }
