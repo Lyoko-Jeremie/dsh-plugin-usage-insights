@@ -6,8 +6,10 @@
  * control for conversations whose usage was never cached.
  */
 import type { JSX } from 'react'
-import type { AgentTotals, HistoryPanelProps, HistoryRange } from './contract'
-import { formatCount, formatMoneyRange, formatPercent, formatTokenCount, formatTokens } from '../lib/format'
+import type { AgentTotals, CostView, HistoryPanelProps, HistoryRange } from './contract'
+import {
+  formatCount, formatMoneyFixed, formatMoneyRange, formatPercent, formatTokenCount, formatTokens,
+} from '../lib/format'
 import { bandShareText, DailyBars, InlineMessage, Row, Section, Stat, StyleTag } from './components'
 
 /**
@@ -35,6 +37,19 @@ function agentSummary(totals: AgentTotals): { text: string; title: string } {
  */
 function hitRateText(rate: number | null): string {
   return rate === null ? '—' : formatPercent(rate)
+}
+
+/**
+ * Render one conversation's cost with aligned decimals.
+ *
+ * @param cost - priced amount, or null when unpriced.
+ * @returns the amount with three decimals, its two-band range, or an em dash.
+ */
+function sessionCostText(cost: CostView | null): string {
+  if (cost === null) return '—'
+  const low = formatMoneyFixed(cost.amountMicros, cost.currency, 3)
+  if (cost.amountMicrosMax === undefined || cost.amountMicrosMax === cost.amountMicros) return low
+  return `${low} – ${formatMoneyFixed(cost.amountMicrosMax, cost.currency, 3)}`
 }
 
 /**
@@ -164,15 +179,11 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
                         <tr key={row.id}>
                           <td className="dsu-session-title" title={row.title}>{row.title}</td>
                           <td>{row.kind === 'subagent' ? t('sessions.subagent') : t('sessions.root')}</td>
-                          <td className="dsu-num">{formatTokens(row.totalTokens)}</td>
+                          <td className="dsu-num">{formatTokenCount(row.totalTokens)}</td>
                           <td className="dsu-num">
                             {row.cacheRate === null ? '—' : formatPercent(row.cacheRate)}
                           </td>
-                          <td className="dsu-num">
-                            {row.cost === null
-                              ? '—'
-                              : formatMoneyRange(row.cost.amountMicros, row.cost.amountMicrosMax, row.cost.currency)}
-                          </td>
+                          <td className="dsu-num">{sessionCostText(row.cost)}</td>
                         </tr>
                       ))}
                     </tbody>

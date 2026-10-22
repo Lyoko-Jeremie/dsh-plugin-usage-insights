@@ -4,6 +4,7 @@ import {
   formatCount,
   formatDuration,
   formatMoney,
+  formatMoneyFixed,
   formatMoneyRange,
   formatPercent,
   formatTokenCount,
@@ -151,6 +152,20 @@ describe('formatMoney', () => {
   it('uses the currency symbol of the given code', () => {
     expect(formatMoney(1_000_000, 'EUR')).toBe('€1.00')
     expect(formatMoney(1_000_000, 'CNY')).toBe('¥1.00')
+  })
+})
+
+describe('formatMoneyFixed', () => {
+  it('pads every amount to the same fraction width', () => {
+    expect(formatMoneyFixed(20_040_000, 'CNY', 3)).toBe('¥20.040')
+    expect(formatMoneyFixed(1_200_000, 'CNY', 3)).toBe('¥1.200')
+    expect(formatMoneyFixed(4_790, 'CNY', 3)).toBe('¥0.005')
+    expect(formatMoneyFixed(0, 'CNY', 3)).toBe('¥0.000')
+  })
+
+  it('rounds to the requested width instead of keeping extra digits', () => {
+    expect(formatMoneyFixed(12_345, 'USD', 3)).toBe('$0.012')
+    expect(formatMoneyFixed(1_234_567, 'USD', 2)).toBe('$1.23')
   })
 })
 

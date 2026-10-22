@@ -140,6 +140,27 @@ export function formatMoney(micros: number, currency: string): string {
 }
 
 /**
+ * Format an amount with a fixed number of fraction digits.
+ *
+ * A column of amounts needs every decimal point in the same place, which the
+ * automatic precision of {@link formatMoney} cannot provide.
+ *
+ * @param micros - amount in micro units (1e-6 of the currency).
+ * @param currency - ISO 4217 code the price table is denominated in.
+ * @param fractionDigits - exact digits after the decimal point.
+ * @returns `"$20.040"`.
+ */
+export function formatMoneyFixed(micros: number, currency: string, fractionDigits: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    currencyDisplay: 'narrowSymbol',
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(micros / 1_000_000)
+}
+
+/**
  * Format a cost amount that may span two billing bands.
  *
  * A table with peak and off-peak rates cannot attribute a cumulative total to
