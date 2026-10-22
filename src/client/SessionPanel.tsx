@@ -181,7 +181,12 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
           <div className="dsu-rows">
             <Row label={t('label.input')} value={formatTokenCount(view.buckets.uncachedInputTokens)} />
             <Row label={t('label.cacheRead')} value={formatTokenCount(view.buckets.cacheReadTokens)} />
-            <Row label={t('label.cacheWrite')} value={formatTokenCount(view.buckets.cacheWriteTokens)} />
+            {/* DeepSeek bills misses as ordinary input and reports no cache
+                writes, so the row would read zero forever; show it only for a
+                provider that charges explicit cache creation. */}
+            {view.buckets.cacheWriteTokens > 0 && (
+              <Row label={t('label.cacheWrite')} value={formatTokenCount(view.buckets.cacheWriteTokens)} />
+            )}
             <Row label={t('label.output')} value={formatTokenCount(view.buckets.outputTokens)} />
             {view.bandShare !== null && (
               <>

@@ -17,9 +17,9 @@ The plugin adds two right-Sidebar pages.
 
 ### Usage (current conversation)
 
-- **Session overview**: request count, total tokens, the four disjoint buckets (input /
-  cache read / cache write / output), cache-hit rate, cost, and the peak/off-peak share
-  (one row by tokens, one by requests).
+- **Session overview**: request count, total tokens, input / cache read / output bucket rows
+  (the cache-write row appears only when a provider reports explicit cache creation),
+  cache-hit rate, cost, and the peak/off-peak share (one row by tokens, one by requests).
 - **Token figures**: the overview's Token card (including its input/output hint) uses compact
   `K` / `M` / `G` units; the remaining overview rows, session metrics, subagent detail and
   request ledger show exact grouped integers (for example `275,123,456`); the header total,
@@ -126,7 +126,7 @@ the composer button is the reliable entry.
 
 | Figure | Source | Notes |
 |---|---|---|
-| Four token buckets, cache-hit rate | `tokenUsage` projection | Exact provider-reported counts; the buckets are disjoint |
+| Token buckets, cache-hit rate | `tokenUsage` projection | Exact provider-reported counts; the buckets are disjoint. DeepSeek reports no cache writes, so that row is hidden |
 | Context used / capacity | `contextPressure` projection | Prompt size of the newest request (or the next-request projection) and model capacity |
 | Context composition | `contextBreakdown` projection | Heuristic system / tools / messages estimate, not billed tokens |
 | Turns, steps, model/tool time, first token, decode speed | `sessionStats` projection | Whole durable log; paging and compaction do not change it |
