@@ -22,8 +22,38 @@ import { mergeCosts, priceBuckets, priceBucketsInBand } from './pricing.ts'
 /** Milliseconds in one range day. */
 const DAY_MS = 86_400_000
 
-/** Length in days of the two bounded history ranges; `all` has no cutoff. */
+/** Length in days of the two bounded day-count ranges; `24h`, `today` and `all` derive their own cutoff. */
 export const RANGE_DAYS = { '7d': 7, '30d': 30 } as const
+
+/**
+ * Start of the current Beijing calendar day.
+ *
+ * @param now - epoch milliseconds.
+ * @returns the epoch milliseconds of that day's 00:00 in Beijing time.
+ */
+function beijingDayStart(now: number): number {
+  return Date.parse(`${beijingDay(now)}T00:00:00+08:00`)
+}
+
+/**
+ * Earliest activity time a range includes, or null for the unbounded range.
+ *
+ * `24h` is a rolling window; `today` starts at the Beijing midnight so its
+ * figures match the daily chart's current-day bar.
+ *
+ * @param range - selected range.
+ * @param now - epoch milliseconds.
+ * @returns the inclusive cutoff, or null when every conversation qualifies.
+ */
+export function rangeCutoff(range: HistoryRange, now: number): number | null {
+  switch (range) {
+    case '24h': return now - DAY_MS
+    case 'today': return beijingDayStart(now)
+    case '7d': return now - RANGE_DAYS['7d'] * DAY_MS
+    case '30d': return now - RANGE_DAYS['30d'] * DAY_MS
+    case 'all': return null
+  }
+}
 
 /**
  * Beijing calendar day of a timestamp, matching the Host rollup's day keys.
@@ -47,7 +77,7 @@ export function aggregateHistory(input: {
   now: number
   pricing: PricingTable
 }): HistoryView {
-  const cutoff = input.range === 'all' ? null : input.now - RANGE_DAYS[input.range] * DAY_MS
+  const cutoff = rangeCutoff(input.range, input.now)
   const cutoffDay = cutoff === null ? null : beijingDay(cutoff)
   const inRange =
     cutoff === null ? input.sessions : input.sessions.filter(session => session.updatedAt >= cutoff)

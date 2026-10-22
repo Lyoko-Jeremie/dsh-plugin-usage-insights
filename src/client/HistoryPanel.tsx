@@ -76,6 +76,8 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
   const rootSummary = agentSummary(view.agents.root)
   const subagentSummary = agentSummary(view.agents.subagent)
   const rangeOptions: readonly (readonly [HistoryRange, string])[] = [
+    ['24h', t('history.range.24h')],
+    ['today', t('history.range.today')],
     ['7d', t('history.range.7d')],
     ['30d', t('history.range.30d')],
     ['all', t('history.range.all')],

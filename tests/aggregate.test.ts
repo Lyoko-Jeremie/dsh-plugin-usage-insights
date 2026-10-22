@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { HistorySessionInput, ModelRef, PricingTable, TokenBuckets } from '../src/client/contract.ts'
-import { aggregateHistory, dayKey, RANGE_DAYS } from '../src/lib/aggregate.ts'
+import { aggregateHistory, dayKey, RANGE_DAYS, rangeCutoff } from '../src/lib/aggregate.ts'
 
 const DAY = 86_400_000
 
@@ -72,6 +72,26 @@ describe('RANGE_DAYS', () => {
     expect(RANGE_DAYS).toEqual({ '7d': 7, '30d': 30 })
     expect(RANGE_DAYS['7d']).toBe(7)
     expect(RANGE_DAYS['30d']).toBe(30)
+  })
+})
+
+describe('rangeCutoff', () => {
+  // 2024-06-15 10:00 Beijing time.
+  const now = Date.UTC(2024, 5, 15, 2, 0)
+
+  it('starts the rolling window a day back', () => {
+    expect(rangeCutoff('24h', now)).toBe(now - 86_400_000)
+  })
+
+  it('starts today at the Beijing midnight', () => {
+    // 2024-06-15 00:00 Beijing time is 2024-06-14 16:00 UTC.
+    expect(rangeCutoff('today', now)).toBe(Date.UTC(2024, 5, 14, 16, 0))
+  })
+
+  it('derives the day-count and unbounded ranges', () => {
+    expect(rangeCutoff('7d', now)).toBe(now - 7 * 86_400_000)
+    expect(rangeCutoff('30d', now)).toBe(now - 30 * 86_400_000)
+    expect(rangeCutoff('all', now)).toBeNull()
   })
 })
 
@@ -167,6 +187,30 @@ describe('aggregateHistory', () => {
     const view = aggregateHistory({ sessions, range: '7d', now, pricing: priced })
     expect(view.sessionCount).toBe(1)
     expect(view.totalTokens).toBe(1)
+  })
+
+  it('filters the rolling 24-hour window', () => {
+    const now = localDay(2024, 6, 15)
+    const sessions = [
+      session('recent', now - 3_600_000, { tokenUsage: tokens({ outputTokens: 10 }) }),
+      session('old', now - 26 * 3_600_000, { tokenUsage: tokens({ outputTokens: 20 }) }),
+    ]
+    const view = aggregateHistory({ sessions, range: '24h', now, pricing: priced })
+    expect(view.sessionCount).toBe(1)
+    expect(view.sessions.map(row => row.id)).toEqual(['recent'])
+    expect(view.totalTokens).toBe(10)
+  })
+
+  it('filters to the current Beijing day', () => {
+    const now = localDay(2024, 6, 15, 10, 0)
+    const midnight = rangeCutoff('today', now) ?? now
+    const sessions = [
+      session('today', midnight + 3_600_000, { tokenUsage: tokens({ outputTokens: 10 }) }),
+      session('yesterday', midnight - 3_600_000, { tokenUsage: tokens({ outputTokens: 20 }) }),
+    ]
+    const view = aggregateHistory({ sessions, range: 'today', now, pricing: priced })
+    expect(view.sessionCount).toBe(1)
+    expect(view.sessions.map(row => row.id)).toEqual(['today'])
   })
 
   it('groups measured sessions by local day in ascending order', () => {

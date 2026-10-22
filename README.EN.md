@@ -62,7 +62,11 @@ The plugin adds two right-Sidebar pages.
 
 ### Usage history (all conversations)
 
-- Range switch: last 7 days / 30 days / all.
+- Range switch: last 24 hours / today / 7 days / 30 days / all. "Last 24h" is a rolling
+  window on each conversation's last activity; "Today" starts at Beijing midnight and matches
+  the daily chart's current-day bar. Per-day band data has no hourly precision, so the 24-hour
+  view can include earlier data from the same day (conversations without per-request data are
+  attributed to their last activity day).
 - Total tokens, conversations measured / total (with a root/subagent split), active days,
   cache-hit rate, cost.
 - **By agent**: root conversations and subagents each list their conversation count, tokens,

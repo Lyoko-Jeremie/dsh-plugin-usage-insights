@@ -107,6 +107,8 @@ export const en = {
   'cost.range': 'range spans peak and off-peak rates',
   'cost.bands': 'priced per request band',
 
+  'history.range.24h': 'Last 24h',
+  'history.range.today': 'Today',
   'history.range.7d': '7 days',
   'history.range.30d': '30 days',
   'history.range.all': 'All',

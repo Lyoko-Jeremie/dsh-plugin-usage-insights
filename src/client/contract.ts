@@ -250,7 +250,7 @@ export interface DayTotal {
 }
 
 /** The range filter of the cross-conversation view. */
-export type HistoryRange = '7d' | '30d' | 'all'
+export type HistoryRange = '24h' | 'today' | '7d' | '30d' | 'all'
 
 /** Which kind of agent a conversation is. */
 export type AgentKind = 'root' | 'subagent'

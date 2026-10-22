@@ -109,6 +109,8 @@ export const zh = {
   'cost.range': '区间覆盖峰谷两档价格',
   'cost.bands': '按每步实际时段计价',
 
+  'history.range.24h': '最近 24 小时',
+  'history.range.today': '今天',
   'history.range.7d': '7 天',
   'history.range.30d': '30 天',
   'history.range.all': '全部',
