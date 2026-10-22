@@ -31,7 +31,7 @@ const BACKFILL_CONCURRENCY = 4
 const AUTO_BACKFILL_LIMIT = 40
 
 /** Rows in the merged request ledger across the delegation tree. */
-const MERGED_STEP_LIMIT = 40
+const MERGED_STEP_LIMIT = 30
 
 /** Child conversations whose band rollup the panel reads at most once. */
 const CHILD_BACKFILL_LIMIT = 20

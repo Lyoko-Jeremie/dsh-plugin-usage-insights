@@ -33,7 +33,7 @@ The plugin adds two right-Sidebar pages.
 - **Session metrics**: turns, steps, tokens per turn, model time, tool time, first-token
   latency, decode speed.
 - **Request table** (collapsed by default, click to expand): the root agent's requests and
-  its direct subagents' requests merged into one newest-first ledger (latest 40 rows by
+  its direct subagents' requests merged into one newest-first ledger (latest 30 rows by
   default, with the delegation-wide total). Each row carries Beijing time, peak/off-peak band,
   the source (`Root`, or the subagent's number `#1`), `turn.step`, model, input / cache read /
   output, and that request's cost. A "Show all" switch reveals every request inside the Host's
@@ -318,8 +318,9 @@ assets/               README screenshots
 ## Known limitations
 
 - The request table is a window: each conversation's Host keeps the latest 200 requests and
-  the Client receives the latest 20; the root/subagent merge shows the latest 40. Older
-  requests stay only in the session log; aggregates still count them.
+  publishes all of them; the root/subagent merge shows the latest 30 by default, and the
+  "Show all" switch reveals every published row. Older requests stay only in the session log;
+  aggregates still count them.
 - Daily rows are retained for 90 days; older days count only toward the lifetime totals.
 - Holidays for 2027 and later require the State Council announcement; configure them manually
   or enable the live refresh.
