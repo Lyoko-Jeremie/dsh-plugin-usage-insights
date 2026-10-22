@@ -38,13 +38,20 @@ export function resolveCompactionThreshold(agent, ctx) {
 /**
  * Publish the compaction threshold whenever a new Agent resolves one.
  *
+ * The read is deferred one macrotask: a profile may carry another
+ * `agent/created` listener (for example a threshold-override plugin) that
+ * rewrites the engine's resolved config in the same event, and the published
+ * value must be the one that actually governs the new Agent.
+ *
  * @param {{ on: (event: string, listener: (payload: { agent: object }) => void) => unknown }} ctx - plugin context.
  * @param {(ratio: number | null) => boolean} set - unit update entry point.
  * @returns {void}
  */
 export function watchCompactionThreshold(ctx, set) {
   ctx.on('agent/created', ({ agent }) => {
-    const observed = resolveCompactionThreshold(agent, ctx)
-    if (observed !== null) set(observed)
+    setTimeout(() => {
+      const observed = resolveCompactionThreshold(agent, ctx)
+      if (observed !== null) set(observed)
+    }, 0)
   })
 }

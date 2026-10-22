@@ -52,7 +52,7 @@ describe('resolveCompactionThreshold', () => {
 })
 
 describe('watchCompactionThreshold', () => {
-  it('publishes the observed ratio when an Agent is created', () => {
+  it('publishes the observed ratio when an Agent is created', async () => {
     let listener
     const seen = []
     watchCompactionThreshold({ on: (_event, handler) => { listener = handler } }, (ratio) => {
@@ -60,10 +60,11 @@ describe('watchCompactionThreshold', () => {
       return true
     })
     listener({ agent: agentWith(engine(0.6)) })
+    await new Promise(resolve => setTimeout(resolve, 5))
     expect(seen).toEqual([0.6])
   })
 
-  it('leaves the published value alone without a reachable backend', () => {
+  it('leaves the published value alone without a reachable backend', async () => {
     let listener
     const seen = []
     watchCompactionThreshold({ on: (_event, handler) => { listener = handler } }, (ratio) => {
@@ -71,6 +72,7 @@ describe('watchCompactionThreshold', () => {
       return true
     })
     listener({ agent: agentWith(undefined) })
+    await new Promise(resolve => setTimeout(resolve, 5))
     expect(seen).toEqual([])
   })
 })
