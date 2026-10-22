@@ -7,8 +7,8 @@
  * values, so light and dark themes stay readable.
  */
 import type { JSX, ReactNode } from 'react'
-import type { DayTotal, StepDetailView, Translate } from './contract'
-import { formatBeijingTime, formatMoneyRange, formatTokens } from '../lib/format'
+import type { ChildAgentView, DayTotal, StepDetailView, Translate } from './contract'
+import { formatBeijingTime, formatCount, formatMoneyRange, formatPercent, formatTokens } from '../lib/format'
 import { css } from './styles'
 
 /** Clamp a 0–1 ratio and render it as a percentage width. */
@@ -212,6 +212,60 @@ export function StepTable(props: { steps: readonly StepDetailView[]; t: Translat
               <td className="dsu-num">{formatTokens(step.outputTokens)}</td>
               <td className="dsu-num">
                 {step.cost === null ? '—' : formatMoneyRange(step.cost.amountMicros, undefined, step.cost.currency)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/**
+ * One row per direct child conversation, largest token total first.
+ *
+ * The columns mirror the history page's per-conversation figures so a root
+ * agent can attribute its delegated spend without leaving the panel.
+ *
+ * @param props - child rows and the translate seat.
+ * @returns the rendered table.
+ */
+export function ChildAgentsTable(props: { agents: readonly ChildAgentView[]; t: Translate }): JSX.Element {
+  return (
+    <div className="dsu-steps-wrap">
+      <table className="dsu-steps">
+        <thead>
+          <tr>
+            <th>{props.t('agents.child')}</th>
+            <th className="dsu-num">{props.t('agents.requests')}</th>
+            <th className="dsu-num">{props.t('agents.tokens')}</th>
+            <th className="dsu-num">{props.t('agents.cache')}</th>
+            <th className="dsu-num">{props.t('agents.cost')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {props.agents.map(agent => (
+            <tr key={agent.id}>
+              <td className="dsu-agent-title" title={agent.title}>
+                {agent.running && (
+                  <span
+                    className="dsu-agent-running"
+                    role="status"
+                    aria-label={props.t('agent.running')}
+                    title={props.t('agent.running')}
+                  />
+                )}
+                {agent.title}
+              </td>
+              <td className="dsu-num">{formatCount(agent.requests)}</td>
+              <td className="dsu-num">{formatTokens(agent.totalTokens)}</td>
+              <td className="dsu-num">
+                {agent.cacheRate === null ? '—' : formatPercent(agent.cacheRate)}
+              </td>
+              <td className="dsu-num">
+                {agent.cost === null
+                  ? '—'
+                  : formatMoneyRange(agent.cost.amountMicros, agent.cost.amountMicrosMax, agent.cost.currency)}
               </td>
             </tr>
           ))}

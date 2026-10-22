@@ -98,7 +98,8 @@ const list = {
 
 const cases = [
   ['session: root', session, propsFor(populated, list),
-    ['154k', '34%', '66%', '48k', '[section.steps]', '1M', '[steps.peak]', '[agent.root]', '[agent.children]']],
+    ['154k', '34%', '66%', '48k', '[section.steps]', '1M', '[steps.peak]', '[agent.root]',
+      '[agent.children]', '[section.subagents]', '[agents.child]']],
   ['session: subagent', session, propsFor(populated, list, 's2'),
     ['[agent.subagent]', '[agent.parent]']],
   ['session: empty', session, propsFor({}, list), ['[empty.noUsage]', '[agent.root]']],

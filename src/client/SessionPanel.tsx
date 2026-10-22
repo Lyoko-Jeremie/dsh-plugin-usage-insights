@@ -15,7 +15,7 @@ import {
   formatTokens,
   formatTokensPerSecond,
 } from '../lib/format'
-import { InlineMessage, MeterBar, Ring, Row, Section, Stat, StepTable, StyleTag } from './components'
+import { ChildAgentsTable, InlineMessage, MeterBar, Ring, Row, Section, Stat, StepTable, StyleTag } from './components'
 
 /**
  * Estimated cost line of the header.
@@ -92,17 +92,26 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
         {identity.kind === 'subagent' && identity.parentTitle !== undefined && (
           <span className="dsu-agent-note">{t('agent.parent', { title: identity.parentTitle })}</span>
         )}
-        {identity.kind === 'root' && identity.children !== undefined && (
-          <span className="dsu-agent-note">
-            {t('agent.children', { n: identity.children.count })}
-            {' · '}
-            {formatTokens(identity.children.totalTokens)}
-            {identity.children.cost === null
-              ? null
-              : <> {' · '}{formatMoneyRange(identity.children.cost.amountMicros, identity.children.cost.amountMicrosMax, identity.children.cost.currency)}</>}
-          </span>
-        )}
       </div>
+      {identity.kind === 'root' && identity.children !== undefined && identity.children.list.length > 0 && (
+        <details className="dsu-agent-details">
+          <summary className="dsu-steps-summary">
+            <span className="dsu-chevron" aria-hidden="true" />
+            <span className="dsu-section-title">{t('section.subagents')}</span>
+            <span className="dsu-steps-meta">
+              {t('agent.children', { n: identity.children.count })}
+              {' · '}
+              {formatTokens(identity.children.totalTokens)}
+              {identity.children.cost === null
+                ? null
+                : <> {' · '}{formatMoneyRange(identity.children.cost.amountMicros, identity.children.cost.amountMicrosMax, identity.children.cost.currency)}</>}
+            </span>
+          </summary>
+          <div className="dsu-steps-body">
+            <ChildAgentsTable agents={identity.children.list} t={t} />
+          </div>
+        </details>
+      )}
       {!view.hasUsage && (
         <InlineMessage>
           <span>{t('empty.noUsage')}</span>

@@ -18,6 +18,13 @@ export const en = {
   'agent.subagent': 'Subagent',
   'agent.parent': 'Parent: {title}',
   'agent.children': '{n} subagents',
+  'agent.running': 'Running',
+  'section.subagents': 'Subagents',
+  'agents.child': 'Subagent',
+  'agents.requests': 'Requests',
+  'agents.tokens': 'Tokens',
+  'agents.cache': 'Cache',
+  'agents.cost': 'Cost',
   'history.sessions.split': 'root {root} · sub {sub}',
 
   'steps.time': 'Time (Beijing)',

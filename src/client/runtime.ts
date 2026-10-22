@@ -77,6 +77,8 @@ export interface SessionSummaryLike {
   /** Parent conversation for a delegated (subagent or team member) Session. */
   parentId?: string
   origin?: 'subagent'
+  /** Whether the conversation currently runs a turn. */
+  running?: boolean
   projectionValues?: Readonly<Record<string, unknown>>
 }
 

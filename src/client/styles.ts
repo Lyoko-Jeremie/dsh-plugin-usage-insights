@@ -75,6 +75,27 @@ export const css = `
   color: var(--dsw-alias-label-tertiary);
 }
 
+.dsu-agent-details {
+  padding-top: 6px;
+}
+
+.dsu-agent-title {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dsu-agent-running {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: var(--dsw-alias-brand-primary);
+}
+
 .dsu-head-value {
   font-size: 26px;
   font-weight: 600;

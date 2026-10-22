@@ -28,11 +28,16 @@ The plugin adds two right-Sidebar pages.
   request's cost. The table shows the latest 20 requests and states the total.
 - **Exact band pricing**: each request is priced in the band its own start fell in, instead
   of applying one price to the whole conversation.
-- **Agent identity**: the header says whether the conversation is a root agent or a
-  subagent; a subagent shows its parent conversation, and a root agent shows its direct
-  subagents' count, total tokens, and cost.
+- **Agent identity and subagent detail**: the header says whether the conversation is a root
+  agent or a subagent; a subagent shows its parent conversation, and a root agent shows its
+  direct subagents' count, total tokens, and cost, expandable into one row per subagent
+  (requests, tokens, cache-hit rate, cost, largest first).
+- Opening a root conversation's usage page reads the missing band rollups of its subagents
+  once (at most 20), turning their figures from an amount range into exact per-band cost.
 
 ![Request table](assets/panel-requests.png)
+
+![Subagent detail](assets/panel-subagents.png)
 
 ### Usage history (all conversations)
 
@@ -128,7 +133,7 @@ DSH models a subagent as its own conversation: the child session's `origin` is `
 uses those fields to distinguish:
 
 - **Root agent**: the root conversation; its panel shows the direct subagents' count, tokens,
-  and cost.
+  and cost, expandable into a per-subagent table (name, requests, tokens, cache hit, cost).
 - **Subagent**: shows a subagent badge and the parent conversation's title; its usage also
   counts toward the history page's subagent row.
 - **History page**: the conversation count splits into root/subagent, and each kind lists its

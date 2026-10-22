@@ -20,6 +20,13 @@ export const zh = {
   'agent.subagent': '子 agent',
   'agent.parent': '父对话：{title}',
   'agent.children': '{n} 个子代理',
+  'agent.running': '运行中',
+  'section.subagents': '子代理',
+  'agents.child': '子代理',
+  'agents.requests': '请求',
+  'agents.tokens': 'Token',
+  'agents.cache': '缓存',
+  'agents.cost': '费用',
   'history.sessions.split': '主 {root} · 子 {sub}',
 
   'steps.time': '时间（北京）',

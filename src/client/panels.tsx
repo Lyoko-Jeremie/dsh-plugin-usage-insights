@@ -8,8 +8,10 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PRICING } from './config.ts'
-import type { HistoryRange, HistorySessionInput, SessionIdentity } from './contract.ts'
+import type { CostView, HistoryRange, HistorySessionInput, SessionIdentity } from './contract.ts'
 import { aggregateHistory } from '../lib/aggregate.ts'
+import { summarizeChildAgents } from '../lib/agents.ts'
+import { mergeCosts } from '../lib/pricing.ts'
 import { deriveSessionUsage } from '../lib/usage.ts'
 import { HistoryPanel } from './HistoryPanel.tsx'
 import { SessionPanel } from './SessionPanel.tsx'
@@ -23,6 +25,12 @@ const BACKFILL_CONCURRENCY = 4
 
 /** Opened tabs backfill automatically only while the missing set stays small. */
 const AUTO_BACKFILL_LIMIT = 40
+
+/** Child conversations whose band rollup the panel reads at most once. */
+const CHILD_BACKFILL_LIMIT = 20
+
+/** How many child projection reads stay in flight. */
+const CHILD_BACKFILL_CONCURRENCY = 3
 
 /**
  * Single-conversation panel body: project the four live projections into the
@@ -83,6 +91,41 @@ export function UsagePanelBody(props: SessionScopedProps) {
     [props.sessionId, list],
   )
 
+  // A child whose band rollup was never read still prices as a range. Read the
+  // missing children once so the table can show exact cost and request counts;
+  // the cap keeps opening a heavily delegated conversation from folding dozens
+  // of cold logs at once.
+  const requestedChildren = useRef(new Set<string>())
+  useEffect(() => {
+    const read = props.readProjections
+    if (read === undefined) return
+    const pending = (identity.children?.list ?? [])
+      .filter(row => row.costBasis === 'range' && !requestedChildren.current.has(row.id))
+      .map(row => row.id)
+    if (pending.length === 0) return
+    const capped = pending.slice(0, CHILD_BACKFILL_LIMIT)
+    for (const id of capped) requestedChildren.current.add(id)
+    void (async () => {
+      let cursor = 0
+      const worker = async (): Promise<void> => {
+        while (cursor < capped.length) {
+          const id = capped[cursor]
+          cursor += 1
+          if (id === undefined) continue
+          try {
+            await read(id)
+          } catch {
+            // The row keeps its range; the next open retries.
+          }
+        }
+      }
+      await Promise.all(Array.from(
+        { length: Math.min(CHILD_BACKFILL_CONCURRENCY, capped.length) },
+        () => worker(),
+      ))
+    })()
+  }, [identity, props.readProjections])
+
   return <SessionPanel view={view} t={props.t} running={running === true} identity={identity} />
 }
 
@@ -106,21 +149,38 @@ function buildIdentity(sessionId: string, list: SessionListSnapshot): SessionIde
       ...(parent?.displayTitle === undefined ? {} : { parentTitle: parent.displayTitle }),
     }
   }
-  const childIds = list.ids.filter(id => list.byId[id]?.parentId === sessionId)
-  if (childIds.length === 0) return { kind: 'root' }
-  const children = childIds
+  const children = list.ids
     .map(id => list.byId[id])
-    .filter((child): child is SessionSummaryLike => child !== undefined)
-    .map(child => toHistoryInput(child))
-  const view = aggregateHistory({ sessions: children, range: 'all', now: Date.now(), pricing: PRICING })
-  const totals = view.agents.subagent
+    .filter((child): child is SessionSummaryLike => child !== undefined && child.parentId === sessionId)
+    .map(child => ({
+      id: child.id,
+      title: child.displayTitle ?? child.id,
+      running: child.running === true,
+      updatedAt: child.updatedAt,
+      tokenUsage: readTokenUsage(child.projectionValues?.tokenUsage),
+      bands: readBands(child.projectionValues?.usageBands),
+      steps: readSessionStats(child.projectionValues?.sessionStats)?.steps,
+      model: readModelSelection(child.projectionValues?.modelSelection)?.next ?? null,
+    }))
+  if (children.length === 0) return { kind: 'root' }
+  const rows = summarizeChildAgents(children, PRICING)
+  let cost: CostView | null = null
+  let exact = true
+  let priced = false
+  for (const row of rows) {
+    if (row.cost === null) continue
+    priced = true
+    exact = exact && row.costBasis === 'bands'
+    cost = cost === null ? row.cost : mergeCosts(cost, row.cost)
+  }
   return {
     kind: 'root',
     children: {
-      count: children.length,
-      totalTokens: totals.totalTokens,
-      cost: totals.cost,
-      costBasis: totals.costBasis,
+      count: rows.length,
+      totalTokens: rows.reduce((total, row) => total + row.totalTokens, 0),
+      cost,
+      costBasis: cost === null ? 'none' : exact ? 'bands' : 'range',
+      list: rows,
     },
   }
 }

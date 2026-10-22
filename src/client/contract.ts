@@ -271,6 +271,22 @@ export interface HistorySessionInput {
   kind?: AgentKind
 }
 
+/** One direct child conversation of the root agent. */
+export interface ChildAgentView {
+  id: string
+  title: string
+  /** Whether the child currently runs a turn. */
+  running: boolean
+  /** Durable activity time, for display. */
+  updatedAt: number
+  /** Billed model requests the child reported. */
+  requests: number
+  totalTokens: number
+  cacheRate: number | null
+  cost: CostView | null
+  costBasis: CostBasis
+}
+
 /** Identity of the conversation the single-conversation panel shows. */
 export interface SessionIdentity {
   kind: AgentKind
@@ -282,6 +298,8 @@ export interface SessionIdentity {
     totalTokens: number
     cost: CostView | null
     costBasis: CostBasis
+    /** Newest activity first. */
+    list: readonly ChildAgentView[]
   }
 }
 
