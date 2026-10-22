@@ -323,9 +323,9 @@ export function StepTable(props: { steps: readonly StepDetailView[]; t: Translat
               </td>
               <td className="dsu-num">{step.turn}.{step.step}</td>
               <td className="dsu-step-model">{step.model === '' ? '—' : step.model}</td>
-              <td className="dsu-num">{formatTokens(step.uncachedInputTokens)}</td>
-              <td className="dsu-num">{formatTokens(step.cacheReadTokens)}</td>
-              <td className="dsu-num">{formatTokens(step.outputTokens)}</td>
+              <td className="dsu-num">{formatTokenCount(step.uncachedInputTokens)}</td>
+              <td className="dsu-num">{formatTokenCount(step.cacheReadTokens)}</td>
+              <td className="dsu-num">{formatTokenCount(step.outputTokens)}</td>
               <td className="dsu-num">
                 {step.cost === null ? '—' : formatMoneyRange(step.cost.amountMicros, undefined, step.cost.currency)}
               </td>
@@ -389,7 +389,7 @@ export function ChildAgentsTable(props: { agents: readonly ChildAgentView[]; t: 
                 {agent.title}
               </td>
               <td className="dsu-num">{formatCount(agent.requests)}</td>
-              <td className="dsu-num" title={formatTokenCount(agent.totalTokens)}>{formatTokens(agent.totalTokens)}</td>
+              <td className="dsu-num">{formatTokenCount(agent.totalTokens)}</td>
               <td className="dsu-num">
                 {agent.cacheRate === null ? '—' : formatPercent(agent.cacheRate)}
               </td>

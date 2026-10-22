@@ -20,8 +20,9 @@ The plugin adds two right-Sidebar pages.
 - **Session overview**: request count, total tokens, the four disjoint buckets (input /
   cache read / cache write / output), cache-hit rate, cost, and the peak/off-peak share
   (one row by tokens, one by requests).
-- **Compact token units**: every token figure uses a `K` / `M` / `G` suffix (for example
-  `275M`); hovering a figure reveals the exact grouped integer (for example `275,123,456`).
+- **Token figures**: the session overview, session metrics, subagent detail and request ledger
+  show exact grouped integers (for example `275,123,456`); the header total, context window and
+  usage history use compact `K` / `M` / `G` units, with the exact value on hover.
 - **Context window**: the first row shows used / capacity and the occupancy percentage; the
   second row is a bar filled to that occupancy; the third row combines both — its width is the
   occupancy and its three-colour fill is the composition; the fourth row is the whole-window
