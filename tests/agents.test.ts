@@ -72,6 +72,8 @@ describe('summarizeChildAgents', () => {
       bandChild('big', 'Big', 3_000_000),
     ], pricing)
     expect(rows.map(row => row.id)).toEqual(['big', 'small'])
+    // The table number follows the token order and labels that child's requests.
+    expect(rows.map(row => row.index)).toEqual([1, 2])
   })
 
   it('falls back to cumulative counters as a range and uses the step count', () => {

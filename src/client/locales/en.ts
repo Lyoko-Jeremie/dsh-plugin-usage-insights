@@ -29,6 +29,8 @@ export const en = {
 
   'steps.time': 'Time (Beijing)',
   'steps.band': 'Band',
+  'steps.agent': 'Agent',
+  'steps.root': 'Root',
   'steps.index': 'Step',
   'steps.model': 'Model',
   'steps.input': 'In',
@@ -64,6 +66,11 @@ export const en = {
   'label.nextRequest': 'Next request',
   'label.cost': 'Cost',
   'label.cost.hint': 'Estimated from the configured price table',
+  'label.bandShare': 'Peak / off-peak',
+  'band.byTokens': 'By tokens',
+  'band.byRequests': 'By requests',
+  'band.partial': 'Only conversations with per-band data',
+  'section.bands': 'Peak / off-peak',
   'label.model': 'Model',
 
   'context.breakdown.system': 'System',

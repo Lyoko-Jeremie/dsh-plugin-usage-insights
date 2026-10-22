@@ -16,6 +16,7 @@ import type {
   HistorySessionInput, HistoryView, PricingTable, TokenBuckets, UsageBandsView,
 } from '../client/contract.ts'
 import { beijingDay } from '../shared/band.js'
+import { addBandEntry, emptyBandShare } from './band-share.ts'
 import { mergeCosts, priceBuckets, priceBucketsInBand } from './pricing.ts'
 
 /** Milliseconds in one range day. */
@@ -57,6 +58,9 @@ export function aggregateHistory(input: {
     cacheWriteTokens: 0,
   }
   const dayTotals = new Map<string, DayTotal>()
+  const bandShare = emptyBandShare()
+  let bandShareSeen = false
+  let bandSharePartial = false
   const root = createAccumulator()
   const subagent = createAccumulator()
   let measuredCount = 0
@@ -76,6 +80,9 @@ export function aggregateHistory(input: {
       kind.sawBands = true
       addBands(buckets, bands)
       addBands(kind, bands)
+      bandShareSeen = true
+      for (const entry of bands.total.peak) addBandEntry(bandShare, entry, 'peak')
+      for (const entry of bands.total.offPeak) addBandEntry(bandShare, entry, 'offPeak')
       for (const day of bands.days) {
         if (cutoffDay !== null && day.day < cutoffDay) continue
         addBandDay(dayTotals, day)
@@ -97,6 +104,7 @@ export function aggregateHistory(input: {
     measuredCount += 1
     kind.measured += 1
     fallbackCount += 1
+    bandSharePartial = true
     sawFallback = true
     kind.sawFallback = true
     addBuckets(buckets, usage)
@@ -131,6 +139,8 @@ export function aggregateHistory(input: {
     cost,
     costBasis: basisOf(cost, sawBands, sawFallback),
     agents: { root: finalize(root), subagent: finalize(subagent) },
+    bandShare: bandShareSeen ? bandShare : null,
+    bandSharePartial,
   }
 }
 

@@ -8,7 +8,7 @@
 import type { JSX } from 'react'
 import type { AgentTotals, HistoryPanelProps, HistoryRange } from './contract'
 import { formatCount, formatMoneyRange, formatPercent, formatTokens } from '../lib/format'
-import { DailyBars, InlineMessage, Row, Section, Stat, StyleTag } from './components'
+import { bandShareText, DailyBars, InlineMessage, Row, Section, Stat, StyleTag } from './components'
 
 /**
  * Summarize one agent kind on a single line.
@@ -97,6 +97,15 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
               <Row label={t('agent.subagent')} value={agentSummary(view.agents.subagent)} />
             </div>
           </Section>
+          {view.bandShare !== null && (
+            <Section title={t('section.bands')}>
+              <div className="dsu-rows">
+                <Row label={t('band.byTokens')} value={bandShareText(view.bandShare, t, 'tokens')} />
+                <Row label={t('band.byRequests')} value={bandShareText(view.bandShare, t, 'requests')} />
+              </div>
+              {view.bandSharePartial && <div className="dsu-note">{t('band.partial')}</div>}
+            </Section>
+          )}
           <Section title={t('history.daily')}>
             <DailyBars days={view.days} t={t} />
             <div className="dsu-note">

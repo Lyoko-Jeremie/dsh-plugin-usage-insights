@@ -46,6 +46,12 @@ describe('deriveSessionUsage with Host projections', () => {
     expect(view.cost?.complete).toBe(true)
     expect(view.costBasis).toBe('bands')
     expect(view.requests).toBe(0)
+    expect(view.bandShare).toEqual({
+      peakTokens: 1_000_000,
+      offPeakTokens: 1_000_000,
+      peakRequests: 1,
+      offPeakRequests: 1,
+    })
   })
 
   it('falls back to a range when the rollup is absent', () => {

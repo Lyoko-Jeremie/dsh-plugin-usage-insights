@@ -18,14 +18,17 @@ The plugin adds two right-Sidebar pages.
 ### Usage (current conversation)
 
 - **Session overview**: request count, total tokens, the four disjoint buckets (input /
-  cache read / cache write / output), cache-hit rate, and cost.
+  cache read / cache write / output), cache-hit rate, cost, and the peak/off-peak share
+  (by tokens and by requests).
 - **Context window**: used vs capacity, occupancy percentage, and the approximate
   composition of system prompt / tool definitions / messages.
 - **Session metrics**: turns, steps, tokens per turn, model time, tool time, first-token
   latency, decode speed.
-- **Request table** (collapsed by default, click to expand): one row per model request with
-  Beijing time, peak/off-peak band, `turn.step`, model, input / cache read / output, and that
-  request's cost. The table shows the latest 20 requests and states the total.
+- **Request table** (collapsed by default, click to expand): the root agent's requests and
+  its direct subagents' requests merged into one newest-first ledger (latest 40 rows, with
+  the delegation-wide total). Each row carries Beijing time, peak/off-peak band, the source
+  (`Root`, or the subagent's number `#1`), `turn.step`, model, input / cache read / output,
+  and that request's cost.
 - **Exact band pricing**: each request is priced in the band its own start fell in, instead
   of applying one price to the whole conversation.
 - **Agent identity and subagent detail**: the header says whether the conversation is a root
@@ -46,6 +49,8 @@ The plugin adds two right-Sidebar pages.
   cache-hit rate, cost.
 - **By agent**: root conversations and subagents each list their conversation count, tokens,
   and cost.
+- **Peak / off-peak share**: by tokens and by requests, counting only conversations that
+  carry a band rollup and saying so when some do not.
 - Daily token chart: conversations with per-request data are grouped by the day and band
   each request actually ran in; the rest fall back to their last activity day and say so.
 - Conversations without per-request data are backfilled automatically (a *Load missing*
@@ -133,7 +138,8 @@ DSH models a subagent as its own conversation: the child session's `origin` is `
 uses those fields to distinguish:
 
 - **Root agent**: the root conversation; its panel shows the direct subagents' count, tokens,
-  and cost, expandable into a per-subagent table (name, requests, tokens, cache hit, cost).
+  and cost, expandable into a per-subagent table (number, name, requests, tokens, cache hit,
+  cost). The request ledger reuses those numbers to label which subagent ran each request.
 - **Subagent**: shows a subagent badge and the parent conversation's title; its usage also
   counts toward the history page's subagent row.
 - **History page**: the conversation count splits into root/subagent, and each kind lists its
@@ -297,8 +303,9 @@ assets/               README screenshots
 
 ## Known limitations
 
-- The request table is a window: the Host retains the latest 200 requests and the panel shows
-  the latest 20. Older requests stay only in the session log; aggregates still count them.
+- The request table is a window: each conversation's Host keeps the latest 200 requests and
+  the Client receives the latest 20; the root/subagent merge shows the latest 40. Older
+  requests stay only in the session log; aggregates still count them.
 - Daily rows are retained for 90 days; older days count only toward the lifetime totals.
 - Holidays for 2027 and later require the State Council announcement; configure them manually
   or enable the live refresh.

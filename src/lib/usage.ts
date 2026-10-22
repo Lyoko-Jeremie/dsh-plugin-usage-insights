@@ -9,6 +9,7 @@ import type {
   BandModelView, BreakdownView, CostBasis, CostView, ModelRef, PricingTable,
   SessionUsageView, StepActivityView, StepDetailView, TokenBuckets, UsageBandsView, UsageStepView,
 } from '../client/contract.ts'
+import { bandShareOf } from './band-share.ts'
 import { mergeCosts, priceBuckets, priceBucketsInBand } from './pricing.ts'
 
 /** Inputs of {@link deriveSessionUsage}: projection values plus the price table. */
@@ -61,7 +62,7 @@ export function deriveSessionUsage(input: SessionUsageInput): SessionUsageView {
     buckets.uncachedInputTokens + buckets.cacheReadTokens + buckets.cacheWriteTokens
   const stats = input.sessionStats
   const model = input.modelSelection?.next ?? input.modelSelection?.lastUsed ?? null
-  const steps = deriveSteps(input.steps, model, input.pricing)
+  const steps = decorateStepDetails(input.steps, model, input.pricing)
   const priced = deriveCost(input, model, buckets)
   return {
     buckets,
@@ -82,6 +83,7 @@ export function deriveSessionUsage(input: SessionUsageInput): SessionUsageView {
     cost: priced.cost,
     costBasis: priced.basis,
     stepActivity: steps,
+    bandShare: bandShareOf(input.bands),
     hasUsage: totalTokens > 0,
   }
 }
@@ -163,14 +165,17 @@ function priceBand(
 }
 
 /**
- * Turn the Host's step list into table rows with their own price.
+ * Turn a Host step list into table rows with their own price.
+ *
+ * Rows start without an agent number: the conversation's own requests are the
+ * root agent's, and child rows are numbered when a root panel merges them.
  *
  * @param raw - the `usageSteps` view, or undefined when the projection is absent.
  * @param fallback - route for steps whose log entry named none.
  * @param pricing - plugin price table.
  * @returns step rows, or null without the projection.
  */
-function deriveSteps(
+export function decorateStepDetails(
   raw: SessionUsageInput['steps'],
   fallback: ModelRef | null,
   pricing: PricingTable,
@@ -178,6 +183,7 @@ function deriveSteps(
   if (raw === null || raw === undefined) return null
   const steps: StepDetailView[] = raw.steps.map(step => ({
     ...step,
+    agentIndex: null,
     cost: priceBucketsInBand(pricing, routeOf(step) ?? fallback, bucketsOf(step), step.band),
   }))
 

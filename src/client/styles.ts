@@ -86,6 +86,13 @@ export const css = `
   white-space: nowrap;
 }
 
+.dsu-agent-index {
+  margin-right: 6px;
+  font-size: 10px;
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
 .dsu-agent-running {
   display: inline-block;
   width: 6px;

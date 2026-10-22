@@ -126,6 +126,16 @@ export interface UsageStepView {
 export interface StepDetailView extends UsageStepView {
   /** Price of this request in its own band; null when the route is unpriced. */
   cost: CostView | null
+  /** 1-based subagent number in the child table; null for the root agent's own requests. */
+  agentIndex: number | null
+}
+
+/** Tokens and requests split by billing band. */
+export interface BandShareView {
+  peakTokens: number
+  offPeakTokens: number
+  peakRequests: number
+  offPeakRequests: number
 }
 
 /** The recent requests a session's `usageSteps` view carries. */
@@ -197,6 +207,8 @@ export interface SessionUsageView {
   costBasis: CostBasis
   /** Recent requests with times and bands; null until the Host projection is available. */
   stepActivity: StepActivityView | null
+  /** Peak/off-peak split of the same conversation; null without a band rollup. */
+  bandShare: BandShareView | null
   /** False until the first provider usage lands. */
   hasUsage: boolean
 }
@@ -255,6 +267,10 @@ export interface HistoryView {
   costBasis: CostBasis
   /** Per-kind split of the same range. */
   agents: { root: AgentTotals; subagent: AgentTotals }
+  /** Peak/off-peak split of the conversations that carry a band rollup. */
+  bandShare: BandShareView | null
+  /** True when some conversations had no band rollup and are outside `bandShare`. */
+  bandSharePartial: boolean
 }
 
 /** One conversation row fed into the cross-conversation aggregation. */
@@ -275,6 +291,8 @@ export interface HistorySessionInput {
 export interface ChildAgentView {
   id: string
   title: string
+  /** 1-based rank in the table (largest token total first), used in the request rows. */
+  index: number
   /** Whether the child currently runs a turn. */
   running: boolean
   /** Durable activity time, for display. */

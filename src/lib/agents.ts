@@ -38,9 +38,10 @@ export function summarizeChildAgents(
   pricing: PricingTable,
 ): ChildAgentView[] {
   const rows = inputs.map(input => summarize(input, pricing))
-  return rows.sort((left, right) =>
+  rows.sort((left, right) =>
     right.totalTokens - left.totalTokens
     || left.title.localeCompare(right.title))
+  return rows.map((row, position) => ({ ...row, index: position + 1 }))
 }
 
 /**
@@ -50,7 +51,7 @@ export function summarizeChildAgents(
  * @param pricing - plugin price table.
  * @returns the table row.
  */
-function summarize(input: ChildAgentInput, pricing: PricingTable): ChildAgentView {
+function summarize(input: ChildAgentInput, pricing: PricingTable): Omit<ChildAgentView, 'index'> {
   const bands = input.bands
   const buckets = bands === undefined
     ? normalize(input.tokenUsage)

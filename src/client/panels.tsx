@@ -12,7 +12,9 @@ import type { CostView, HistoryRange, HistorySessionInput, SessionIdentity } fro
 import { aggregateHistory } from '../lib/aggregate.ts'
 import { summarizeChildAgents } from '../lib/agents.ts'
 import { mergeCosts } from '../lib/pricing.ts'
-import { deriveSessionUsage } from '../lib/usage.ts'
+import { mergeStepActivity } from '../lib/steps.ts'
+import type { NumberedStepActivity } from '../lib/steps.ts'
+import { decorateStepDetails, deriveSessionUsage } from '../lib/usage.ts'
 import { HistoryPanel } from './HistoryPanel.tsx'
 import { SessionPanel } from './SessionPanel.tsx'
 import type { SessionListSnapshot, SessionScopedProps, SessionSummaryLike } from './runtime.ts'
@@ -25,6 +27,9 @@ const BACKFILL_CONCURRENCY = 4
 
 /** Opened tabs backfill automatically only while the missing set stays small. */
 const AUTO_BACKFILL_LIMIT = 40
+
+/** Rows in the merged request ledger across the delegation tree. */
+const MERGED_STEP_LIMIT = 40
 
 /** Child conversations whose band rollup the panel reads at most once. */
 const CHILD_BACKFILL_LIMIT = 20
@@ -100,7 +105,9 @@ export function UsagePanelBody(props: SessionScopedProps) {
     const read = props.readProjections
     if (read === undefined) return
     const pending = (identity.children?.list ?? [])
-      .filter(row => row.costBasis === 'range' && !requestedChildren.current.has(row.id))
+      .filter(row => !requestedChildren.current.has(row.id))
+      .filter(row => row.costBasis === 'range'
+        || readSteps(list.byId[row.id]?.projectionValues?.usageSteps) === undefined)
       .map(row => row.id)
     if (pending.length === 0) return
     const capped = pending.slice(0, CHILD_BACKFILL_LIMIT)
@@ -124,9 +131,28 @@ export function UsagePanelBody(props: SessionScopedProps) {
         () => worker(),
       ))
     })()
-  }, [identity, props.readProjections])
+  }, [identity, list, props.readProjections])
 
-  return <SessionPanel view={view} t={props.t} running={running === true} identity={identity} />
+  // One request ledger across the delegation tree: the root's own requests plus
+  // each subagent's recent requests, tagged with the subagent's table number.
+  const childActivities = useMemo<NumberedStepActivity[]>(
+    () => (identity.children?.list ?? []).map(row => {
+      const summary = list.byId[row.id]
+      const activity = decorateStepDetails(
+        readSteps(summary?.projectionValues?.usageSteps),
+        readModelSelection(summary?.projectionValues?.modelSelection)?.next ?? null,
+        PRICING,
+      )
+      return { index: row.index, activity }
+    }),
+    [identity, list],
+  )
+  const mergedView = useMemo(() => {
+    const merged = mergeStepActivity(view.stepActivity, childActivities, MERGED_STEP_LIMIT)
+    return merged === view.stepActivity ? view : { ...view, stepActivity: merged }
+  }, [view, childActivities])
+
+  return <SessionPanel view={mergedView} t={props.t} running={running === true} identity={identity} />
 }
 
 /**

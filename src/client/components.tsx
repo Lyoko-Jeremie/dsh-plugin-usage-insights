@@ -7,7 +7,8 @@
  * values, so light and dark themes stay readable.
  */
 import type { JSX, ReactNode } from 'react'
-import type { ChildAgentView, DayTotal, StepDetailView, Translate } from './contract'
+import type { BandShareView, ChildAgentView, DayTotal, StepDetailView, Translate } from './contract'
+import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
 import { formatBeijingTime, formatCount, formatMoneyRange, formatPercent, formatTokens } from '../lib/format'
 import { css } from './styles'
 
@@ -180,7 +181,8 @@ export function DailyBars(props: { days: readonly DayTotal[]; t: Translate }): J
  * @returns the rendered table.
  */
 export function StepTable(props: { steps: readonly StepDetailView[]; t: Translate }): JSX.Element {
-  const rows = [...props.steps].reverse()
+  // The merged ledger arrives newest-first; the table renders it in that order.
+  const rows = props.steps
   return (
     <div className="dsu-steps-wrap">
       <table className="dsu-steps">
@@ -188,6 +190,7 @@ export function StepTable(props: { steps: readonly StepDetailView[]; t: Translat
           <tr>
             <th>{props.t('steps.time')}</th>
             <th>{props.t('steps.band')}</th>
+            <th>{props.t('steps.agent')}</th>
             <th>{props.t('steps.index')}</th>
             <th>{props.t('steps.model')}</th>
             <th className="dsu-num">{props.t('steps.input')}</th>
@@ -205,6 +208,9 @@ export function StepTable(props: { steps: readonly StepDetailView[]; t: Translat
                   {props.t(step.band === 'peak' ? 'steps.peak' : 'steps.offPeak')}
                 </span>
               </td>
+              <td className="dsu-num">
+                {step.agentIndex === null ? props.t('steps.root') : `#${String(step.agentIndex)}`}
+              </td>
               <td className="dsu-num">{step.turn}.{step.step}</td>
               <td className="dsu-step-model">{step.model === '' ? '—' : step.model}</td>
               <td className="dsu-num">{formatTokens(step.uncachedInputTokens)}</td>
@@ -219,6 +225,20 @@ export function StepTable(props: { steps: readonly StepDetailView[]; t: Translat
       </table>
     </div>
   )
+}
+
+/**
+ * Render one peak/off-peak proportion.
+ *
+ * @param share - band split.
+ * @param t - translate seat.
+ * @param basis - 'tokens' or 'requests'.
+ * @returns e.g. `峰 32% · 谷 68%`, or an em dash without data.
+ */
+export function bandShareText(share: BandShareView, t: Translate, basis: 'tokens' | 'requests'): string {
+  const ratio = basis === 'tokens' ? peakTokenShare(share) : peakRequestShare(share)
+  if (ratio === null) return '—'
+  return `${t('steps.peak')} ${formatPercent(ratio)} · ${t('steps.offPeak')} ${formatPercent(1 - ratio)}`
 }
 
 /**
@@ -247,6 +267,7 @@ export function ChildAgentsTable(props: { agents: readonly ChildAgentView[]; t: 
           {props.agents.map(agent => (
             <tr key={agent.id}>
               <td className="dsu-agent-title" title={agent.title}>
+                <span className="dsu-agent-index">{`#${String(agent.index)}`}</span>
                 {agent.running && (
                   <span
                     className="dsu-agent-running"

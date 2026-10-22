@@ -90,7 +90,14 @@ const list = {
     s2: {
       id: 's2', displayTitle: 'Delegated work', parentId: 's1', origin: 'subagent',
       updatedAt: Date.now() - 86_400_000,
-      projectionValues: { tokenUsage: { uncachedInputTokens: 1000, outputTokens: 500, cacheReadTokens: 4000, cacheWriteTokens: 0 } },
+      projectionValues: {
+        tokenUsage: { uncachedInputTokens: 1000, outputTokens: 500, cacheReadTokens: 4000, cacheWriteTokens: 0 },
+        usageSteps: {
+          steps: [{ ...stepRow, at: Date.UTC(2026, 9, 21, 3, 0), turn: 2, step: 0 }],
+          totalSteps: 1,
+          omittedSteps: 0,
+        },
+      },
     },
     s3: { id: 's3', displayTitle: 'Another conversation', updatedAt: Date.now(), projectionValues: {} },
   },
@@ -99,12 +106,14 @@ const list = {
 const cases = [
   ['session: root', session, propsFor(populated, list),
     ['154k', '34%', '66%', '48k', '[section.steps]', '1M', '[steps.peak]', '[agent.root]',
-      '[agent.children]', '[section.subagents]', '[agents.child]']],
+      '[agent.children]', '[section.subagents]', '[agents.child]', '[steps.agent]', '#1',
+      '[label.bandShare]']],
   ['session: subagent', session, propsFor(populated, list, 's2'),
     ['[agent.subagent]', '[agent.parent]']],
   ['session: empty', session, propsFor({}, list), ['[empty.noUsage]', '[agent.root]']],
   ['history: populated', history, propsFor({}, list),
-    ['1M', '[history.range.7d]', '[section.agents]', '[agent.subagent]']],
+    ['1M', '[history.range.7d]', '[section.agents]', '[agent.subagent]',
+      '[section.bands]', '[band.byTokens]']],
   ['history: empty', history, propsFor({}, { ids: [], byId: {} }), ['[history.empty]']],
 ]
 

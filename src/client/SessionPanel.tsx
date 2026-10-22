@@ -15,7 +15,9 @@ import {
   formatTokens,
   formatTokensPerSecond,
 } from '../lib/format'
-import { ChildAgentsTable, InlineMessage, MeterBar, Ring, Row, Section, Stat, StepTable, StyleTag } from './components'
+import {
+  bandShareText, ChildAgentsTable, InlineMessage, MeterBar, Ring, Row, Section, Stat, StepTable, StyleTag,
+} from './components'
 
 /**
  * Estimated cost line of the header.
@@ -151,6 +153,13 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
             <Row label={t('label.cacheRead')} value={formatTokens(view.buckets.cacheReadTokens)} />
             <Row label={t('label.cacheWrite')} value={formatTokens(view.buckets.cacheWriteTokens)} />
             <Row label={t('label.output')} value={formatTokens(view.buckets.outputTokens)} />
+            {view.bandShare !== null && (
+              <Row
+                label={t('label.bandShare')}
+                value={bandShareText(view.bandShare, t, 'tokens')}
+                hint={bandShareText(view.bandShare, t, 'requests')}
+              />
+            )}
           </div>
         </Section>
       )}

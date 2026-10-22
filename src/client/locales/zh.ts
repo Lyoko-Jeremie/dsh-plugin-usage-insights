@@ -31,6 +31,8 @@ export const zh = {
 
   'steps.time': '时间（北京）',
   'steps.band': '时段',
+  'steps.agent': '来源',
+  'steps.root': '主',
   'steps.index': '步',
   'steps.model': '模型',
   'steps.input': '输入',
@@ -66,6 +68,11 @@ export const zh = {
   'label.nextRequest': '下次请求',
   'label.cost': '费用',
   'label.cost.hint': '按已配置的价格表估算',
+  'label.bandShare': '峰谷比例',
+  'band.byTokens': '按 Token',
+  'band.byRequests': '按请求',
+  'band.partial': '仅统计有峰谷明细的会话',
+  'section.bands': '峰谷比例',
   'label.model': '模型',
 
   'context.breakdown.system': '系统提示',
