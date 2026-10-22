@@ -43,13 +43,13 @@ function hitRateText(rate: number | null): string {
  * Render one conversation's cost with aligned decimals.
  *
  * @param cost - priced amount, or null when unpriced.
- * @returns the amount with three decimals, its two-band range, or an em dash.
+ * @returns the amount with six decimals, its two-band range, or an em dash.
  */
 function sessionCostText(cost: CostView | null): string {
   if (cost === null) return '—'
-  const low = formatMoneyFixed(cost.amountMicros, cost.currency, 3)
+  const low = formatMoneyFixed(cost.amountMicros, cost.currency, 6)
   if (cost.amountMicrosMax === undefined || cost.amountMicrosMax === cost.amountMicros) return low
-  return `${low} – ${formatMoneyFixed(cost.amountMicrosMax, cost.currency, 3)}`
+  return `${low} – ${formatMoneyFixed(cost.amountMicrosMax, cost.currency, 6)}`
 }
 
 /**
