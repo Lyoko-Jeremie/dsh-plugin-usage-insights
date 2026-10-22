@@ -70,6 +70,13 @@ describe('mergeStepActivity', () => {
     expect(merged?.omittedSteps).toBe(15)
   })
 
+  it('keeps every loaded row when the limit is unbounded', () => {
+    const rows = Array.from({ length: 60 }, (_, index) => detail(60 - index, null))
+    const merged = mergeStepActivity(activity(rows), [], Number.POSITIVE_INFINITY)
+    expect(merged?.steps).toHaveLength(60)
+    expect(merged?.omittedSteps).toBe(0)
+  })
+
   it('breaks ties by agent number so the root sorts first', () => {
     const merged = mergeStepActivity(
       activity([detail(100, null)]),

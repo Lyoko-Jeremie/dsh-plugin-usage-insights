@@ -709,6 +709,12 @@ export const css = `
   min-width: 0;
 }
 
+.dsu-steps-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .dsu-steps-wrap {
   width: 100%;
   min-width: 0;

@@ -3,7 +3,7 @@
       name: dsh-usage-insights
       config:
         stepHistory: 200
-        stepWindow: 20
+        stepWindow: 200
         bandDays: 90
         useBuiltinHolidays: true
         holidays: []

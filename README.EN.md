@@ -33,10 +33,11 @@ The plugin adds two right-Sidebar pages.
 - **Session metrics**: turns, steps, tokens per turn, model time, tool time, first-token
   latency, decode speed.
 - **Request table** (collapsed by default, click to expand): the root agent's requests and
-  its direct subagents' requests merged into one newest-first ledger (latest 40 rows, with
-  the delegation-wide total). Each row carries Beijing time, peak/off-peak band, the source
-  (`Root`, or the subagent's number `#1`), `turn.step`, model, input / cache read / output,
-  and that request's cost.
+  its direct subagents' requests merged into one newest-first ledger (latest 40 rows by
+  default, with the delegation-wide total). Each row carries Beijing time, peak/off-peak band,
+  the source (`Root`, or the subagent's number `#1`), `turn.step`, model, input / cache read /
+  output, and that request's cost. A "Show all" switch reveals every request inside the Host's
+  retained window (latest 200 per conversation by default).
 - **Exact band pricing**: each request is priced in the band its own start fell in, instead
   of applying one price to the whole conversation.
 - **Agent identity and subagent detail**: the header says whether the conversation is a root

@@ -355,6 +355,10 @@ export interface SessionPanelProps {
   running: boolean
   /** Whether this conversation is a root agent, and its direct children. */
   identity: SessionIdentity
+  /** Whether the request ledger shows every loaded row instead of the newest window. */
+  showAllSteps: boolean
+  /** Toggle the request ledger window. */
+  onToggleAllSteps: () => void
 }
 
 /** Load state of the missing-projection backfill. */

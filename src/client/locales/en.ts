@@ -41,6 +41,9 @@ export const en = {
   'steps.offPeak': 'Off',
   'steps.count': '{n} requests',
   'steps.omitted': 'Showing the latest {shown} of {total} requests',
+  'steps.omitted.all': 'Showing {shown} requests; {omitted} older ones are outside the Host window',
+  'steps.showAll': 'Show all',
+  'steps.showRecent': 'Show latest only',
   'steps.empty': 'No per-request records yet',
 
   'label.requests': 'Requests',

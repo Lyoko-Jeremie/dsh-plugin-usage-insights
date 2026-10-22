@@ -250,12 +250,27 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
             </span>
           </summary>
           <div className="dsu-steps-body">
+            <div className="dsu-steps-toolbar">
+              <button
+                type="button"
+                className="dsu-btn"
+                aria-pressed={props.showAllSteps}
+                onClick={props.onToggleAllSteps}
+              >
+                {props.showAllSteps ? t('steps.showRecent') : t('steps.showAll')}
+              </button>
+            </div>
             {view.stepActivity.omittedSteps > 0 && (
               <div className="dsu-note">
-                {t('steps.omitted', {
-                  shown: view.stepActivity.steps.length,
-                  total: view.stepActivity.totalSteps,
-                })}
+                {props.showAllSteps
+                  ? t('steps.omitted.all', {
+                    shown: view.stepActivity.steps.length,
+                    omitted: view.stepActivity.omittedSteps,
+                  })
+                  : t('steps.omitted', {
+                    shown: view.stepActivity.steps.length,
+                    total: view.stepActivity.totalSteps,
+                  })}
               </div>
             )}
             <StepTable steps={view.stepActivity.steps} t={t} />

@@ -29,8 +29,11 @@ export const inject = ['sessionProjections']
 export const Config = z.object({
   /** Requests retained in the per-step fold (and checkpointed). */
   stepHistory: z.number().int().min(1).default(200),
-  /** Requests a client-visible view carries. */
-  stepWindow: z.number().int().min(1).default(20),
+  /**
+   * Requests a client-visible view carries. The panel's "show all" switch can
+   * only reach rows the Host publishes, so this defaults to the whole fold.
+   */
+  stepWindow: z.number().int().min(1).default(200),
   /** Beijing days retained in the per-band rollup. */
   bandDays: z.number().int().min(1).default(90),
   /** Use the bundled 2025-2026 statutory-holiday snapshot. */
@@ -63,7 +66,7 @@ export async function apply(ctx, config = {}) {
   const stepHistory = config.stepHistory ?? 200
   const settings = {
     stepHistory,
-    stepWindow: Math.min(config.stepWindow ?? 20, stepHistory),
+    stepWindow: Math.min(config.stepWindow ?? 200, stepHistory),
     bandDays: config.bandDays ?? 90,
     holidays: resolveHolidays(config),
   }

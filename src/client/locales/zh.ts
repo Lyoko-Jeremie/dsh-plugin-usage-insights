@@ -43,6 +43,9 @@ export const zh = {
   'steps.offPeak': '谷',
   'steps.count': '{n} 步',
   'steps.omitted': '仅显示最近 {shown} 步，共 {total} 步',
+  'steps.omitted.all': '已显示 {shown} 步；更早的 {omitted} 步超出 Host 保留窗口',
+  'steps.showAll': '显示全部',
+  'steps.showRecent': '仅显示最近',
   'steps.empty': '暂无分步记录',
 
   'label.requests': '请求',

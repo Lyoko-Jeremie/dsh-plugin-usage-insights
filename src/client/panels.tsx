@@ -55,6 +55,9 @@ export function UsagePanelBody(props: SessionScopedProps) {
   const usageSteps = props.useProjection('usageSteps')
   const usageBands = props.useProjection('usageBands')
   const running = props.useSession(snapshot => snapshot.running)
+  // The ledger opens on the newest window; the switch reveals every row the
+  // Host published for this delegation tree.
+  const [showAllSteps, setShowAllSteps] = useState(false)
 
   // Projections are push-only: a page that opened this Session before the Host
   // published a value (or a resumed page whose baseline predates the key) reads
@@ -150,11 +153,21 @@ export function UsagePanelBody(props: SessionScopedProps) {
     [identity, list],
   )
   const mergedView = useMemo(() => {
-    const merged = mergeStepActivity(view.stepActivity, childActivities, MERGED_STEP_LIMIT)
+    const limit = showAllSteps ? Number.POSITIVE_INFINITY : MERGED_STEP_LIMIT
+    const merged = mergeStepActivity(view.stepActivity, childActivities, limit)
     return merged === view.stepActivity ? view : { ...view, stepActivity: merged }
-  }, [view, childActivities])
+  }, [view, childActivities, showAllSteps])
 
-  return <SessionPanel view={mergedView} t={props.t} running={running === true} identity={identity} />
+  return (
+    <SessionPanel
+      view={mergedView}
+      t={props.t}
+      running={running === true}
+      identity={identity}
+      showAllSteps={showAllSteps}
+      onToggleAllSteps={() => { setShowAllSteps(value => !value) }}
+    />
+  )
 }
 
 /**
