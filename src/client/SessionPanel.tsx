@@ -19,7 +19,7 @@ import {
 import { peakTokenShare } from '../lib/band-share.ts'
 import {
   bandShareText, ChildAgentsTable, CompositionBar, CompositionProgress, HitBar, HitRuler, InlineMessage,
-  ProgressBar, Ring, Row, Section, Stat, StepTable, StyleTag,
+  ProgressBar, Ring, Row, Section, Stat, StepTable, StyleTag, useHitDivisions,
 } from './components'
 import type { CompositionSegment } from './components'
 
@@ -62,6 +62,7 @@ function CostLine(props: { cost: CostView | null; basis: CostBasis; t: Translate
  */
 export function SessionPanel(props: SessionPanelProps): JSX.Element {
   const { view, t, running, identity } = props
+  const hitRuler = useHitDivisions()
   const context = view.context
   const hasContext = context.usedTokens !== null || context.windowTokens !== null || context.ratio !== null
   const breakdown = view.breakdown
@@ -206,10 +207,10 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
       {view.hasUsage && (
         <Section title={t('section.cacheHit')}>
           <div className="dsu-hits">
-            <HitRuler />
-            <HitBar label={t('cacheHit.total')} ratio={view.cacheHits.total} />
-            <HitBar label={t('cacheHit.turn')} ratio={view.cacheHits.turn} />
-            <HitBar label={t('cacheHit.step')} ratio={view.cacheHits.step} />
+            <HitRuler divisions={hitRuler.divisions} trackRef={hitRuler.trackRef} />
+            <HitBar divisions={hitRuler.divisions} label={t('cacheHit.total')} ratio={view.cacheHits.total} />
+            <HitBar divisions={hitRuler.divisions} label={t('cacheHit.turn')} ratio={view.cacheHits.turn} />
+            <HitBar divisions={hitRuler.divisions} label={t('cacheHit.step')} ratio={view.cacheHits.step} />
           </div>
         </Section>
       )}

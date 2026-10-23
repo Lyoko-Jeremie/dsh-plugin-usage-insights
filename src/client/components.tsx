@@ -6,10 +6,11 @@
  * from the Harness alias tokens declared in `styles.ts`, never from literal
  * values, so light and dark themes stay readable.
  */
-import type { JSX, ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { JSX, ReactNode, RefObject } from 'react'
 import type { BandShareView, ChildAgentView, DayTotal, StepDetailView, Translate } from './contract'
 import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
-import { hitBarRatio, hitLevel, hitTickLabel, HIT_TICKS } from '../lib/hit-scale.ts'
+import { divisionsForWidth, hitBarRatio, hitLevel, hitTicks, hitTickLabel } from '../lib/hit-scale.ts'
 import {
   currencySymbol, formatAmountFixed, formatBeijingTime, formatCount, formatMoneyRange, formatPercent,
   formatPercentFixed, formatTokenCount, formatTokens,
@@ -99,32 +100,58 @@ export function ProgressBar(props: { ratio: number | null; marker?: number | nul
   )
 }
 
+/** Segment count used before the track has been measured. */
+const DEFAULT_HIT_DIVISIONS = 8
+
+/**
+ * Segment count for the cache-hit ruler, measured from the track.
+ *
+ * The ruler divides the track into equal lengths, so the count has to follow
+ * the width actually available: too many segments and the labels collide, too
+ * few and the bar loses its references. The hook measures the track and
+ * re-halves or re-doubles the count whenever the panel is resized.
+ *
+ * @returns the current segment count and the ref to attach to the ruler track.
+ */
+export function useHitDivisions(): { divisions: number; trackRef: RefObject<HTMLDivElement | null> } {
+  const trackRef = useRef<HTMLDivElement | null>(null)
+  const [divisions, setDivisions] = useState(DEFAULT_HIT_DIVISIONS)
+  useEffect(() => {
+    const track = trackRef.current
+    if (track === null || typeof ResizeObserver === 'undefined') return undefined
+    const update = (): void => {
+      setDivisions(divisionsForWidth(track.clientWidth))
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(track)
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+  return { divisions, trackRef }
+}
+
 /**
  * Cache-hit bar with its percentage.
  *
  * The fill uses the non-linear scale from `hit-scale` so rates above 90% keep
  * their differences visible; the percentage carries the status colour. Reference
- * ticks cut into the fill sit on equal divisions of the track, so a length can
- * be read back as a percentage. A tick carries its tier so the stylesheet can
- * drop the denser divisions when the row is too narrow to label them apart.
+ * ticks cut into the fill sit on the same equal divisions as the ruler, so a
+ * length can be read back against its labels.
  *
- * @param props - row label and the hit ratio, or null without usage.
+ * @param props - segment count, row label and the hit ratio, or null without usage.
  * @returns the rendered bar.
  */
-export function HitBar(props: { label: string; ratio: number | null }): JSX.Element {
+export function HitBar(props: { divisions: number; label: string; ratio: number | null }): JSX.Element {
   const level = hitLevel(props.ratio)
   const width = props.ratio === null ? 0 : hitBarRatio(props.ratio)
   return (
     <div className="dsu-hit">
       <span className="dsu-hit-label">{props.label}</span>
       <div className="dsu-hit-track">
-        {HIT_TICKS.filter(tick => tick.width < 1).map(tick => (
-          <span
-            key={tick.width}
-            className="dsu-hit-grid"
-            data-tier={tick.tier}
-            style={{ left: `${tick.width * 100}%` }}
-          />
+        {hitTicks(props.divisions).filter(tick => tick.width < 1).map(tick => (
+          <span key={tick.width} className="dsu-hit-grid" style={{ left: `${tick.width * 100}%` }} />
         ))}
         {props.ratio !== null && (
           <div className="dsu-hit-fill" data-level={level} style={{ width: `${width * 100}%` }} />
@@ -142,24 +169,19 @@ export function HitBar(props: { label: string; ratio: number | null }): JSX.Elem
  *
  * Sits above them with the same label/track/value structure, so every label
  * lands exactly above the line cut into each bar. Labels divide the track into
- * equal lengths and print the rate that division displays; which divisions
- * appear follows the row width, and the two-row layout switches on only when
- * every division is shown.
+ * equal lengths and print the rate each division displays; the segment count
+ * comes from the measured track width.
  *
+ * @param props - segment count and the ref of the measured track.
  * @returns the rendered ruler row.
  */
-export function HitRuler(): JSX.Element {
+export function HitRuler(props: { divisions: number; trackRef: RefObject<HTMLDivElement | null> }): JSX.Element {
   return (
     <div className="dsu-hit dsu-hit--ruler" aria-hidden="true">
       <span className="dsu-hit-label" />
-      <div className="dsu-hit-track dsu-hit-track--ruler">
-        {HIT_TICKS.map(tick => (
-          <span
-            key={tick.width}
-            className="dsu-hit-tick"
-            data-tier={tick.tier}
-            style={{ left: `${tick.width * 100}%` }}
-          >
+      <div className="dsu-hit-track dsu-hit-track--ruler" ref={props.trackRef}>
+        {hitTicks(props.divisions).map(tick => (
+          <span key={tick.width} className="dsu-hit-tick" style={{ left: `${tick.width * 100}%` }}>
             {hitTickLabel(tick.ratio)}
           </span>
         ))}

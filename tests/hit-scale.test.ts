@@ -1,65 +1,71 @@
 import { describe, expect, it } from 'vitest'
 import {
-  FULL_HIT_RATIO, HIT_SCALE_EXPONENT, HIT_TICKS, HIT_TICK_DIVISIONS,
-  hitBarRatio, hitLevel, hitRatioAtWidth, hitTickLabel,
+  FULL_HIT_RATIO, HIT_MIN_DIVISIONS, HIT_MIN_SEGMENT_PX, HIT_SCALE_EXPONENT,
+  divisionsForWidth, hitBarRatio, hitLevel, hitRatioAtWidth, hitTickLabel, hitTicks,
 } from '../src/lib/hit-scale.ts'
-import type { HitTick } from '../src/lib/hit-scale.ts'
 
-const visible = (maxTier: number): HitTick[] => HIT_TICKS.filter(tick => tick.tier <= maxTier)
-
-describe('HIT_TICKS', () => {
-  it('divides the track into equal lengths', () => {
-    expect(HIT_TICKS).toHaveLength(HIT_TICK_DIVISIONS + 1)
-    expect(HIT_TICKS.map(tick => tick.width)).toEqual(
-      Array.from({ length: HIT_TICK_DIVISIONS + 1 }, (_, index) => index / HIT_TICK_DIVISIONS),
-    )
+describe('divisionsForWidth', () => {
+  it('never goes below two segments', () => {
+    expect(HIT_MIN_DIVISIONS).toBe(2)
+    expect(divisionsForWidth(0)).toBe(2)
+    expect(divisionsForWidth(1)).toBe(2)
+    expect(divisionsForWidth(2 * HIT_MIN_SEGMENT_PX - 1)).toBe(2)
   })
 
-  it('labels each division with the rate that fills it', () => {
-    for (const tick of HIT_TICKS) expect(hitBarRatio(tick.ratio)).toBeCloseTo(tick.width, 10)
-    expect(HIT_TICKS[0]!.ratio).toBe(0)
-    expect(HIT_TICKS[HIT_TICKS.length - 1]!.ratio).toBe(1)
-    expect(HIT_TICKS.map(tick => tick.ratio)).toEqual(
-      [...HIT_TICKS].map(tick => tick.ratio).sort((left, right) => left - right),
-    )
+  it('keeps every segment at least the minimum width', () => {
+    for (const width of [50, 96, 191, 192, 383, 384, 767, 768, 1536, 3000]) {
+      const divisions = divisionsForWidth(width)
+      expect(Number.isInteger(Math.log2(divisions))).toBe(true)
+      if (width >= 2 * HIT_MIN_SEGMENT_PX) {
+        expect(width / divisions).toBeGreaterThanOrEqual(HIT_MIN_SEGMENT_PX)
+      }
+    }
   })
 
-  it('shows the non-linear spacing through the labels, not through the marks', () => {
-    const middle = HIT_TICKS[Math.floor(HIT_TICKS.length / 2)]!
-    // Half the track is a 90% hit rate: the axis cannot be read linearly.
-    expect(middle.width).toBeCloseTo(0.5, 10)
-    expect(middle.ratio).toBeCloseTo(1 - 0.5 ** (1 / HIT_SCALE_EXPONENT), 10)
+  it('halves the segments each time the track gains that much width again', () => {
+    expect(divisionsForWidth(384)).toBe(8)
+    expect(divisionsForWidth(768)).toBe(16)
+    expect(divisionsForWidth(1536)).toBe(32)
+  })
+
+  it('has no upper bound', () => {
+    const huge = 10_000_000
+    const divisions = divisionsForWidth(huge)
+    expect(divisions).toBeGreaterThan(100_000)
+    expect(huge / divisions).toBeGreaterThanOrEqual(HIT_MIN_SEGMENT_PX)
   })
 })
 
-describe('HIT_TICK tiers', () => {
-  it('coarsens the same division grid as rows get narrower', () => {
-    expect(visible(1).map(tick => tick.width)).toEqual([0, 1])
-    expect(visible(2).map(tick => tick.width)).toEqual([0, 1 / 3, 2 / 3, 1])
-    expect(visible(3)).toHaveLength(7)
-    expect(visible(4)).toHaveLength(HIT_TICK_DIVISIONS + 1)
-  })
-
-  it('keeps every tier evenly spaced', () => {
-    for (const maxTier of [1, 2, 3, 4]) {
-      const widths = visible(maxTier).map(tick => tick.width)
-      const gaps = widths.slice(1).map((width, index) => width - widths[index]!)
+describe('hitTicks', () => {
+  it('divides the track into equal lengths ending at both edges', () => {
+    for (const divisions of [2, 4, 8, 16]) {
+      const ticks = hitTicks(divisions)
+      expect(ticks).toHaveLength(divisions + 1)
+      expect(ticks[0]).toEqual({ width: 0, ratio: 0 })
+      expect(ticks[ticks.length - 1]).toEqual({ width: 1, ratio: 1 })
+      const gaps = ticks.slice(1).map((tick, index) => tick.width - ticks[index]!.width)
       expect(new Set(gaps.map(gap => gap.toFixed(10))).size).toBe(1)
     }
+  })
+
+  it('labels each division with the rate that fills it', () => {
+    expect(hitTicks(8).map(tick => hitTickLabel(tick.ratio))).toEqual([
+      '0%', '35.9%', '61.7%', '79.1%', '90.1%', '96.2%', '99.0%', '99.90%', '100%',
+    ])
+  })
+
+  it('shows the non-linear spacing through the labels, not through the marks', () => {
+    const ticks = hitTicks(8)
+    // Half the track is a 90% hit rate: the axis cannot be read linearly.
+    expect(ticks[4]!.width).toBe(0.5)
+    expect(ticks[4]!.ratio).toBeCloseTo(1 - 0.5 ** (1 / HIT_SCALE_EXPONENT), 10)
   })
 })
 
 describe('hitTickLabel', () => {
-  it('prints the rate of each division', () => {
-    expect(HIT_TICKS.map(tick => hitTickLabel(tick.ratio))).toEqual([
-      '0%', '25.2%', '45.5%', '61.7%', '74.1%', '83.4%', '90.1%',
-      '94.6%', '97.4%', '99.0%', '99.75%', '99.97%', '100%',
-    ])
-  })
-
   it('keeps the last marks before 100% distinct', () => {
-    expect(hitTickLabel(hitRatioAtWidth(10 / 12))).toBe('99.75%')
-    expect(hitTickLabel(hitRatioAtWidth(11 / 12))).toBe('99.97%')
+    expect(hitTickLabel(hitRatioAtWidth(7 / 8))).toBe('99.90%')
+    expect(hitTickLabel(hitRatioAtWidth(15 / 16))).toBe('99.99%')
     expect(hitTickLabel(1)).toBe('100%')
   })
 })

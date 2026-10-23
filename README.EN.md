@@ -22,14 +22,15 @@ The plugin adds two right-Sidebar pages.
   cache-hit rate, cost, and the peak/off-peak share (one row by tokens, one by requests).
 - **Cache hit**: three bars for the cumulative, current-turn and latest-request hit rates. The
   fill uses a power scale (`1-(1-r)^0.3`) so the region above 90% keeps its differences. The
-  ruler divides the whole track into 12 equal lengths and labels each one with the hit rate that
-  lands there (the midpoint is 90.1%, a quarter is 61.7%, one twelfth is 25.2%), so the tick
-  lines are evenly spaced while their labels are not — the non-linear axis shows up in the
-  numbers themselves. The ruler adapts to the available width: a narrow panel drops to 6 / 3 / 1
-  divisions and shows only the labels that fit, while a wide one shows all 12 (labels alternate
-  between two rows so neighbours stay apart); the tick lines cut into each bar share those
-  positions. The percentage keeps three decimals (for example `99.618%`) and is coloured by
-  status: green at 90% or above, amber from 70%, red below.
+  ruler divides the whole track into a power-of-two number of equal segments (2 / 4 / 8 / 16 …
+  with no upper bound) and labels each boundary with the hit rate that lands there — at 8
+  segments that is 0% / 35.9% / 61.7% / 79.1% / 90.1% / 96.2% / 99.0% / 99.90% / 100%, so the
+  tick lines are evenly spaced while their labels are not, and the non-linear axis shows up in
+  the numbers themselves. The segment count follows the available width: it doubles only while
+  every segment stays at least 40 px wide, so a wider panel earns more segments and the
+  narrowest still keeps 2; the tick lines cut into each bar share those positions. The
+  percentage keeps three decimals (for example `99.618%`) and is coloured by status: green at
+  90% or above, amber from 70%, red below.
 - **Token figures**: the overview's Token card (including its input/output hint) uses compact
   `K` / `M` / `G` units; the remaining overview rows, session metrics, subagent detail and
   request ledger show exact grouped integers (for example `275,123,456`); the header total,

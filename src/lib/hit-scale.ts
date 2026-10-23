@@ -20,48 +20,59 @@ export const HIT_SCALE_EXPONENT = 0.3
  */
 export const FULL_HIT_RATIO = 0.9999995
 
-/** Equal divisions of the track that the reference ruler is built from. */
-export const HIT_TICK_DIVISIONS = 12
+/** Smallest number of segments the ruler keeps, however narrow the track is. */
+export const HIT_MIN_DIVISIONS = 2
+
+/** Width one segment needs before the ruler splits it in half again. */
+export const HIT_MIN_SEGMENT_PX = 40
 
 /**
- * One reference mark on the cache-hit bars.
+ * Pick how many segments the ruler should draw.
  *
- * The ruler divides the track into equal lengths rather than picking round
- * percentages. Both ends stay marked, and the labels print the rate that lands
- * on each division instead of the rate the author chose.
+ * Segment counts are powers of two, so the ruler never shows a half segment:
+ * it halves every segment each time the track gains that much width again, and
+ * stops at {@link HIT_MIN_DIVISIONS} on a narrow row. There is no upper bound;
+ * a wider track simply keeps halving.
+ *
+ * @param trackWidth - available width of the ruler track, in CSS pixels.
+ * @param minSegmentPx - width one segment needs to keep its label apart.
+ * @returns the number of segments, a power of two no smaller than 2.
  */
-export interface HitTick {
-  /** Equal division of the track: 0 at the left edge, 1 at the right. */
-  readonly width: number
-  /** Cache-hit rate that fills exactly {@link width} of the bar. */
-  readonly ratio: number
-  /**
-   * Visibility tier: 1 always shows, 2 / 3 / 4 join on progressively wider
-   * rows. Every tier coarsens the same division grid (12 → 6 → 3 → 1), so the
-   * marks that remain stay evenly spaced.
-   */
-  readonly tier: 1 | 2 | 3 | 4
+export function divisionsForWidth(
+  trackWidth: number,
+  minSegmentPx: number = HIT_MIN_SEGMENT_PX,
+): number {
+  let divisions = HIT_MIN_DIVISIONS
+  while (trackWidth >= divisions * 2 * minSegmentPx) divisions *= 2
+  return divisions
 }
 
 /**
- * Reference marks on the cache-hit bars.
- *
- * The marks sit on equal divisions of the track, which is what makes the power
- * scale legible: half the track is a 90% hit rate, a quarter is 62%. Which
- * tiers are drawn depends on the width of the row; see the container rules in
- * `styles.ts`.
+ * One reference mark on the cache-hit bars.
  */
-export const HIT_TICKS: readonly HitTick[] = Array.from(
-  { length: HIT_TICK_DIVISIONS + 1 },
-  (_, index): HitTick => {
-    const width = index / HIT_TICK_DIVISIONS
-    return {
-      width,
-      ratio: hitRatioAtWidth(width),
-      tier: index % 12 === 0 ? 1 : index % 4 === 0 ? 2 : index % 2 === 0 ? 3 : 4,
-    }
-  },
-)
+export interface HitTick {
+  /** Position on the track: 0 at the left edge, 1 at the right. */
+  readonly width: number
+  /** Cache-hit rate that fills exactly {@link width} of the bar. */
+  readonly ratio: number
+}
+
+/**
+ * Build the marks of an equal-length ruler.
+ *
+ * The track is divided into `divisions` equal lengths, and each mark prints the
+ * rate that fills it. Even spacing is what makes the power scale legible: half
+ * the track is a 90% hit rate, a quarter is 62%.
+ *
+ * @param divisions - number of equal segments to draw; 2 or more.
+ * @returns one mark per segment boundary, including both track ends.
+ */
+export function hitTicks(divisions: number): HitTick[] {
+  return Array.from({ length: divisions + 1 }, (_, index) => {
+    const width = index / divisions
+    return { width, ratio: hitRatioAtWidth(width) }
+  })
+}
 
 /**
  * Label one cache-hit tick.
@@ -96,7 +107,7 @@ export function hitBarRatio(ratio: number): number {
 /**
  * Map a fill width back onto the cache-hit rate it displays.
  *
- * Inverse of {@link hitBarRatio}, used to label the equal divisions of the
+ * Inverse of {@link hitBarRatio}, used to label the equal segments of the
  * ruler. The two round-trip within floating-point error below
  * {@link FULL_HIT_RATIO}.
  *
