@@ -9,7 +9,7 @@
 import type { JSX, ReactNode } from 'react'
 import type { BandShareView, ChildAgentView, DayTotal, StepDetailView, Translate } from './contract'
 import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
-import { hitBarRatio, hitLevel, HIT_TICKS } from '../lib/hit-scale.ts'
+import { hitBarRatio, hitLevel, hitTickLabel, HIT_TICKS } from '../lib/hit-scale.ts'
 import {
   currencySymbol, formatAmountFixed, formatBeijingTime, formatCount, formatMoneyRange, formatPercent,
   formatPercentFixed, formatTokenCount, formatTokens,
@@ -104,8 +104,9 @@ export function ProgressBar(props: { ratio: number | null; marker?: number | nul
  *
  * The fill uses the non-linear scale from `hit-scale` so rates above 90% keep
  * their differences visible; the percentage carries the status colour. Reference
- * ticks from the same scale are cut into the fill so a length can be read back
- * as a percentage.
+ * ticks cut into the fill sit on equal divisions of the track, so a length can
+ * be read back as a percentage. A tick carries its tier so the stylesheet can
+ * drop the denser divisions when the row is too narrow to label them apart.
  *
  * @param props - row label and the hit ratio, or null without usage.
  * @returns the rendered bar.
@@ -117,8 +118,13 @@ export function HitBar(props: { label: string; ratio: number | null }): JSX.Elem
     <div className="dsu-hit">
       <span className="dsu-hit-label">{props.label}</span>
       <div className="dsu-hit-track">
-        {HIT_TICKS.map(tick => (
-          <span key={tick} className="dsu-hit-grid" style={{ left: `${hitBarRatio(tick) * 100}%` }} />
+        {HIT_TICKS.filter(tick => tick.width < 1).map(tick => (
+          <span
+            key={tick.width}
+            className="dsu-hit-grid"
+            data-tier={tick.tier}
+            style={{ left: `${tick.width * 100}%` }}
+          />
         ))}
         {props.ratio !== null && (
           <div className="dsu-hit-fill" data-level={level} style={{ width: `${width * 100}%` }} />
@@ -134,8 +140,11 @@ export function HitBar(props: { label: string; ratio: number | null }): JSX.Elem
 /**
  * Ruler shared by the cache-hit bars.
  *
- * Sits above them with the same label/track/value structure, so every tick
- * label lands exactly above the line cut into each bar.
+ * Sits above them with the same label/track/value structure, so every label
+ * lands exactly above the line cut into each bar. Labels divide the track into
+ * equal lengths and print the rate that division displays; which divisions
+ * appear follows the row width, and the two-row layout switches on only when
+ * every division is shown.
  *
  * @returns the rendered ruler row.
  */
@@ -145,8 +154,13 @@ export function HitRuler(): JSX.Element {
       <span className="dsu-hit-label" />
       <div className="dsu-hit-track dsu-hit-track--ruler">
         {HIT_TICKS.map(tick => (
-          <span key={tick} className="dsu-hit-tick" style={{ left: `${hitBarRatio(tick) * 100}%` }}>
-            {formatPercent(tick)}
+          <span
+            key={tick.width}
+            className="dsu-hit-tick"
+            data-tier={tick.tier}
+            style={{ left: `${tick.width * 100}%` }}
+          >
+            {hitTickLabel(tick.ratio)}
           </span>
         ))}
       </div>

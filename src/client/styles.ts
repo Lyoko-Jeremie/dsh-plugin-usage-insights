@@ -293,6 +293,7 @@ export const css = `
   gap: 8px;
   min-width: 0;
   padding: 4px 0;
+  container-type: inline-size;
 }
 
 .dsu-hit-label {
@@ -338,6 +339,57 @@ export const css = `
   white-space: nowrap;
   color: var(--dsw-alias-label-tertiary);
   font-variant-numeric: tabular-nums;
+}
+
+/* 默认只留最粗的一档等分（0% 与 100%），更细的等分按宽度加入。 */
+.dsu-hit-tick[data-tier='2'],
+.dsu-hit-tick[data-tier='3'],
+.dsu-hit-tick[data-tier='4'],
+.dsu-hit-grid[data-tier='2'],
+.dsu-hit-grid[data-tier='3'],
+.dsu-hit-grid[data-tier='4'] {
+  visibility: hidden;
+}
+
+/* 3 等分。 */
+@container (min-width: 260px) {
+  .dsu-hit-tick[data-tier='2'],
+  .dsu-hit-grid[data-tier='2'] {
+    visibility: visible;
+  }
+}
+
+/* 6 等分。 */
+@container (min-width: 380px) {
+  .dsu-hit-tick[data-tier='3'],
+  .dsu-hit-grid[data-tier='3'] {
+    visibility: visible;
+  }
+}
+
+/* 12 等分：标签改为两行交错，否则相邻标签会互相压住。 */
+@container (min-width: 560px) {
+  .dsu-hit-track--ruler {
+    height: 24px;
+  }
+
+  .dsu-hit-tick:nth-child(odd) {
+    bottom: 12px;
+  }
+
+  .dsu-hit-tick[data-tier='4'],
+  .dsu-hit-grid[data-tier='4'] {
+    visibility: visible;
+  }
+}
+
+/* 首末标签贴住轨道两端，避免半个标签溢出面板。 */
+.dsu-hit-tick:first-child {
+  transform: none;
+}
+
+.dsu-hit-tick:last-child {
+  transform: translateX(-100%);
 }
 
 .dsu-hit-fill {

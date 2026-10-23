@@ -20,14 +20,63 @@ export const HIT_SCALE_EXPONENT = 0.3
  */
 export const FULL_HIT_RATIO = 0.9999995
 
+/** Equal divisions of the track that the reference ruler is built from. */
+export const HIT_TICK_DIVISIONS = 12
+
+/**
+ * One reference mark on the cache-hit bars.
+ *
+ * The ruler divides the track into equal lengths rather than picking round
+ * percentages. Both ends stay marked, and the labels print the rate that lands
+ * on each division instead of the rate the author chose.
+ */
+export interface HitTick {
+  /** Equal division of the track: 0 at the left edge, 1 at the right. */
+  readonly width: number
+  /** Cache-hit rate that fills exactly {@link width} of the bar. */
+  readonly ratio: number
+  /**
+   * Visibility tier: 1 always shows, 2 / 3 / 4 join on progressively wider
+   * rows. Every tier coarsens the same division grid (12 → 6 → 3 → 1), so the
+   * marks that remain stay evenly spaced.
+   */
+  readonly tier: 1 | 2 | 3 | 4
+}
+
 /**
  * Reference marks on the cache-hit bars.
  *
- * Six points make the non-linear spacing visible: the gaps shrink toward the
- * top, so the bar cannot be read as a linear percentage axis. The marks cover
- * the usual 50–99.9% band while keeping every label apart on the track.
+ * The marks sit on equal divisions of the track, which is what makes the power
+ * scale legible: half the track is a 90% hit rate, a quarter is 62%. Which
+ * tiers are drawn depends on the width of the row; see the container rules in
+ * `styles.ts`.
  */
-export const HIT_TICKS = [0.5, 0.7, 0.85, 0.95, 0.99, 0.999] as const
+export const HIT_TICKS: readonly HitTick[] = Array.from(
+  { length: HIT_TICK_DIVISIONS + 1 },
+  (_, index): HitTick => {
+    const width = index / HIT_TICK_DIVISIONS
+    return {
+      width,
+      ratio: hitRatioAtWidth(width),
+      tier: index % 12 === 0 ? 1 : index % 4 === 0 ? 2 : index % 2 === 0 ? 3 : 4,
+    }
+  },
+)
+
+/**
+ * Label one cache-hit tick.
+ *
+ * The rate is printed to one decimal, and to two from 99.5% upward so the last
+ * marks before 100% stay distinct.
+ *
+ * @param ratio - cache-hit rate the tick stands for.
+ * @returns `"0%"`, `"45.5%"`, `"99.0%"`, `"99.97%"`, `"100%"`.
+ */
+export function hitTickLabel(ratio: number): string {
+  if (ratio >= 1) return '100%'
+  if (ratio === 0) return '0%'
+  return `${(ratio * 100).toFixed(ratio >= 0.995 ? 2 : 1)}%`
+}
 
 /** Status band of one cache-hit rate. */
 export type HitLevel = 'good' | 'warn' | 'bad' | 'none'
@@ -42,6 +91,22 @@ export function hitBarRatio(ratio: number): number {
   const clamped = Math.min(1, Math.max(0, ratio))
   if (clamped >= FULL_HIT_RATIO) return 1
   return 1 - (1 - clamped) ** HIT_SCALE_EXPONENT
+}
+
+/**
+ * Map a fill width back onto the cache-hit rate it displays.
+ *
+ * Inverse of {@link hitBarRatio}, used to label the equal divisions of the
+ * ruler. The two round-trip within floating-point error below
+ * {@link FULL_HIT_RATIO}.
+ *
+ * @param width - filled fraction of the track, clamped to [0, 1].
+ * @returns the cache-hit rate that fills exactly that width.
+ */
+export function hitRatioAtWidth(width: number): number {
+  const clamped = Math.min(1, Math.max(0, width))
+  if (clamped >= 1) return 1
+  return 1 - (1 - clamped) ** (1 / HIT_SCALE_EXPONENT)
 }
 
 /**
