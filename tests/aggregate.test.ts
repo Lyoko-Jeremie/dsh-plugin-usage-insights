@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { HistorySessionInput, ModelRef, PricingTable, TokenBuckets } from '../src/client/contract.ts'
+import type { HistorySessionInput, ModelRef, PricingTable, TokenBuckets, UsageStepView } from '../src/client/contract.ts'
 import { aggregateHistory, dayKey, RANGE_DAYS, rangeCutoff } from '../src/lib/aggregate.ts'
 
 const DAY = 86_400_000
@@ -51,6 +51,7 @@ function session(
     tokenUsage?: TokenBuckets
     model?: ModelRef | null
     bands?: HistorySessionInput['bands']
+    steps?: HistorySessionInput['steps']
     kind?: HistorySessionInput['kind']
   } = {},
 ): HistorySessionInput {
@@ -61,8 +62,36 @@ function session(
     model: options.model ?? null,
     ...(tokenUsage === undefined ? {} : { tokenUsage }),
     ...(options.bands === undefined ? {} : { bands: options.bands }),
+    ...(options.steps === undefined ? {} : { steps: options.steps }),
     ...(options.kind === undefined ? {} : { kind: options.kind }),
   }
+}
+
+/** One billed request with its start time and billing band. */
+function step(
+  at: number,
+  partial: Partial<TokenBuckets> = {},
+  band: 'peak' | 'off-peak' = 'peak',
+): UsageStepView {
+  const buckets = tokens(partial)
+  return {
+    at,
+    turn: 1,
+    step: 0,
+    provider: 'alpha',
+    model: 'chat',
+    band,
+    uncachedInputTokens: buckets.uncachedInputTokens,
+    cacheReadTokens: buckets.cacheReadTokens,
+    cacheWriteTokens: buckets.cacheWriteTokens,
+    outputTokens: buckets.outputTokens,
+    reasoningTokens: 0,
+  }
+}
+
+/** One complete step window holding every request of a conversation. */
+function windowOf(...steps: UsageStepView[]): NonNullable<HistorySessionInput['steps']> {
+  return { steps, totalSteps: steps.length, omittedSteps: 0 }
 }
 
 const emptyBuckets = tokens()
@@ -464,5 +493,179 @@ describe('aggregateHistory', () => {
     expect(view.costBasis).toBe('range')
     expect(view.agents.root.costBasis).toBe('bands')
     expect(view.agents.subagent.costBasis).toBe('range')
+  })
+})
+
+describe('aggregateHistory request timing', () => {
+  const route = { provider: 'alpha', model: 'chat' }
+
+  /** Peak input costs 10 per million, off-peak 5; output costs nothing. */
+  const bandPricing: PricingTable = {
+    currency: 'USD',
+    prices: [{
+      provider: 'alpha',
+      model: 'chat',
+      input: 10,
+      cacheRead: 0,
+      cacheWrite: 0,
+      output: 0,
+      offPeak: { input: 5, cacheRead: 0, cacheWrite: 0, output: 0 },
+    }],
+  }
+
+  it('counts each request in the day it ran, not the day the conversation was touched', () => {
+    const now = localDay(2024, 6, 15, 12, 0)
+    const sessions = [
+      session('spans', now, {
+        model: route,
+        steps: windowOf(
+          step(localDay(2024, 6, 10, 9, 0), { uncachedInputTokens: 100 }, 'peak'),
+          step(localDay(2024, 6, 15, 9, 0), { uncachedInputTokens: 50 }, 'off-peak'),
+        ),
+      }),
+    ]
+    const view = aggregateHistory({ sessions, range: '7d', now, pricing: priced })
+    expect(view.sessionCount).toBe(1)
+    expect(view.totalTokens).toBe(150)
+    expect(view.days.map(day => [day.day, day.totalTokens])).toEqual([
+      ['2024-06-10', 100],
+      ['2024-06-15', 50],
+    ])
+    expect(view.days[0]?.peakTokens).toBe(100)
+    expect(view.days[1]?.offPeakTokens).toBe(50)
+    expect(view.sessions[0]?.totalTokens).toBe(150)
+    expect(view.sessions[0]?.costBasis).toBe('bands')
+  })
+
+  it('keeps yesterday out of the current-day figures of a conversation that spans days', () => {
+    const now = localDay(2024, 6, 15, 12, 0)
+    const sessions = [
+      session('spans', now, {
+        model: route,
+        steps: windowOf(
+          step(localDay(2024, 6, 14, 20, 0), { outputTokens: 10 }, 'off-peak'),
+          step(localDay(2024, 6, 15, 9, 0), { outputTokens: 20 }, 'peak'),
+        ),
+      }),
+    ]
+    const view = aggregateHistory({ sessions, range: 'today', now, pricing: priced })
+    expect(view.sessionCount).toBe(1)
+    expect(view.totalTokens).toBe(20)
+    expect(view.days).toHaveLength(1)
+    expect(view.days[0]?.day).toBe('2024-06-15')
+    expect(view.bandShare).toEqual({
+      peakTokens: 20, offPeakTokens: 0, peakRequests: 1, offPeakRequests: 0,
+    })
+  })
+
+  it('filters a rolling 24-hour window down to the request start', () => {
+    const now = localDay(2024, 6, 15, 12, 0)
+    const sessions = [
+      session('recent', now, {
+        model: route,
+        steps: windowOf(
+          step(now - 2 * 3_600_000, { outputTokens: 10 }),
+          step(now - 25 * 3_600_000, { outputTokens: 40 }),
+        ),
+      }),
+    ]
+    const view = aggregateHistory({ sessions, range: '24h', now, pricing: priced })
+    expect(view.totalTokens).toBe(10)
+    expect(view.sessionCount).toBe(1)
+    expect(view.days.map(day => day.totalTokens)).toEqual([10])
+  })
+
+  it('prices every request in the band it actually ran in', () => {
+    const now = localDay(2024, 6, 15, 12, 0)
+    const sessions = [
+      session('spans', now, {
+        model: route,
+        steps: windowOf(
+          step(localDay(2024, 6, 15, 9, 0), { uncachedInputTokens: 1_000_000 }, 'peak'),
+          step(localDay(2024, 6, 15, 21, 0), { uncachedInputTokens: 1_000_000 }, 'off-peak'),
+        ),
+      }),
+    ]
+    const view = aggregateHistory({ sessions, range: 'today', now, pricing: bandPricing })
+    expect(view.cost).toEqual({
+      amountMicros: 15_000_000,
+      currency: 'USD',
+      pricedTokens: 2_000_000,
+      totalTokens: 2_000_000,
+      complete: true,
+    })
+    expect(view.costBasis).toBe('bands')
+  })
+
+  it('falls back to the day rollup when the step window is incomplete', () => {
+    const now = localDay(2024, 6, 15, 12, 0)
+    const entry = {
+      provider: 'alpha', model: 'chat', requests: 1,
+      uncachedInputTokens: 300, cacheReadTokens: 0, cacheWriteTokens: 0,
+      outputTokens: 0, reasoningTokens: 0,
+    }
+    const sessions = [
+      session('spans', now, {
+        model: route,
+        bands: {
+          days: [
+            { day: '2024-06-10', peak: [entry], offPeak: [] },
+            { day: '2024-06-15', peak: [], offPeak: [entry] },
+          ],
+          total: { peak: [entry], offPeak: [entry] },
+        },
+        steps: {
+          steps: [step(localDay(2024, 6, 15, 9, 0), { uncachedInputTokens: 300 }, 'off-peak')],
+          totalSteps: 3,
+          omittedSteps: 2,
+        },
+      }),
+    ]
+    const view = aggregateHistory({ sessions, range: '7d', now, pricing: priced })
+    // The rollup covers the whole conversation, the truncated window does not.
+    expect(view.totalTokens).toBe(600)
+    expect(view.days.map(day => [day.day, day.totalTokens])).toEqual([
+      ['2024-06-10', 300],
+      ['2024-06-15', 300],
+    ])
+  })
+
+  it('counts only the rollup days a bounded range includes', () => {
+    const now = localDay(2024, 6, 15, 12, 0)
+    const entry = (tokensPerRequest: number) => ({
+      provider: 'alpha', model: 'chat', requests: 1,
+      uncachedInputTokens: tokensPerRequest, cacheReadTokens: 0, cacheWriteTokens: 0,
+      outputTokens: 0, reasoningTokens: 0,
+    })
+    const sessions = [
+      session('spans', now, {
+        model: route,
+        bands: {
+          days: [
+            { day: '2024-06-01', peak: [entry(999)], offPeak: [] },
+            { day: '2024-06-10', peak: [entry(100)], offPeak: [] },
+          ],
+          total: { peak: [entry(999), entry(100)], offPeak: [] },
+        },
+      }),
+    ]
+    const view = aggregateHistory({ sessions, range: '7d', now, pricing: priced })
+    expect(view.totalTokens).toBe(100)
+    expect(view.days.map(day => day.day)).toEqual(['2024-06-10'])
+    expect(view.sessions[0]?.totalTokens).toBe(100)
+  })
+
+  it('drops conversations whose requests all fall outside the range', () => {
+    const now = localDay(2024, 6, 15, 12, 0)
+    const sessions = [
+      session('old', now, {
+        model: route,
+        steps: windowOf(step(localDay(2024, 5, 1, 9, 0), { outputTokens: 40 })),
+      }),
+    ]
+    const view = aggregateHistory({ sessions, range: '7d', now, pricing: priced })
+    expect(view.sessionCount).toBe(0)
+    expect(view.totalTokens).toBe(0)
+    expect(view.sessions).toEqual([])
   })
 })

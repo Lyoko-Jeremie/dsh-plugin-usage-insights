@@ -67,25 +67,26 @@ The plugin adds two right-Sidebar pages.
 
 ### Usage history (all conversations)
 
-- Range switch: last 24 hours / today / 7 days / 30 days / all. "Last 24h" is a rolling
-  window on each conversation's last activity; "Today" starts at Beijing midnight and matches
-  the daily chart's current-day bar. Per-day band data has no hourly precision, so the 24-hour
-  view can include earlier data from the same day (conversations without per-request data are
-  attributed to their last activity day).
-- Total tokens, conversations measured / total (with a root/subagent split), active days,
-  cache-hit rate, cost.
+- Range switch: last 24 hours / today / 7 days / 30 days / all. Every figure follows the time
+  each *request* actually ran, not the conversation as a whole: a conversation that spans days
+  contributes each request to the day it happened, so "Today" never carries yesterday's usage.
+  Conversations whose step window is complete are exact to the second; ones that only carry a
+  per-day rollup are exact to the Beijing day (so the 24-hour view widens to that day's
+  midnight); only conversations with neither fall back to their last activity day.
+- Total tokens, conversations with an in-range request / total (with a root/subagent split),
+  active days, cache-hit rate, cost.
 - **By agent**: root conversations and subagents each list their conversation count, tokens,
   their own cache-hit rate, and cost.
 - **Session detail** (collapsed by default): one row per conversation with its title, root or
-  subagent kind, exact grouped token total, cache-hit rate and cost (the header names the
-  currency, for example `Cost (¥)`; cells keep digits only at six decimals, so the column
-  aligns), ordered by tokens.
-- **Peak / off-peak share**: by tokens and by requests, counting only conversations that
-  carry a band rollup and saying so when some do not.
+  subagent kind, in-range token total (exact grouped integer), cache-hit rate and cost (the
+  header names the currency, for example `Cost (¥)`; cells keep digits only at six decimals, so
+  the column aligns), ordered by tokens.
+- **Peak / off-peak share**: by tokens and by requests, counting only conversations that carry
+  request times or a per-day rollup and saying so when some do not.
 - Daily token chart: bars stack the peak (amber) and off-peak (green) tokens with a legend.
-  Conversations with per-request data are grouped by the day and band each request actually
-  ran in; the rest fall back to their last activity day and appear gray as unattributed.
-- Conversations without per-request data are backfilled automatically (a *Load missing*
+  Every request is grouped by the day and band it actually ran in; only conversations without
+  any request-level data fall back to their last activity day and appear gray as unattributed.
+- Conversations without request-level data are backfilled automatically (a *Load missing*
   control covers large catalogs).
 
 ![Usage history](assets/history.png)
@@ -299,7 +300,7 @@ Host (index.js)
 Client (dist/client.js)
 ├── Usage page: reads tokenUsage / contextPressure / contextBreakdown / sessionStats /
 │               usageSteps / usageBands
-├── Usage history page: reads each conversation's usageBands from the session list
+├── Usage history page: reads each conversation's usageSteps and usageBands from the session list
 └── Composer button: expands the right Sidebar and opens the usage page
 ```
 

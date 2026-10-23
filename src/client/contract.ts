@@ -284,20 +284,23 @@ export interface HistorySessionRow {
 /** Everything the cross-conversation panel renders. */
 export interface HistoryView {
   range: HistoryRange
-  /** Rows considered after the range filter. */
+  /**
+   * Conversations with a request inside the range, plus those whose last
+   * activity falls inside it but that carry no usage value.
+   */
   sessionCount: number
-  /** Rows that carried a usage value. */
+  /** Conversations that contributed at least one in-range request. */
   measuredCount: number
-  /** Rows the range included but that carried no usage value. */
+  /** Conversations in range that carried no usage value. */
   missingCount: number
-  /** Conversations priced from cumulative counters because they carried no band rollup. */
+  /** Conversations priced from cumulative counters because they carried no request times. */
   fallbackCount: number
   buckets: TokenBuckets
   totalTokens: number
   cacheRate: number | null
   /** Distinct days with a non-zero total. */
   activeDays: number
-  /** Ascending by day; only days with a conversation in range appear. */
+  /** Ascending by day; only days with an in-range request appear. */
   days: DayTotal[]
   cost: CostView | null
   /** How `cost` and `days` were derived. */
@@ -312,6 +315,16 @@ export interface HistoryView {
   bandSharePartial: boolean
 }
 
+/** Recent requests of one conversation, as the Host's `usageSteps` view reports them. */
+export interface StepWindowInput {
+  /** Newest last; bounded by the Host's configured window. */
+  steps: readonly UsageStepView[]
+  /** Requests the Host has folded, including those outside the window. */
+  totalSteps: number
+  /** Requests folded but not carried in `steps`. */
+  omittedSteps: number
+}
+
 /** One conversation row fed into the cross-conversation aggregation. */
 export interface HistorySessionInput {
   id: string
@@ -324,6 +337,11 @@ export interface HistorySessionInput {
   model: ModelRef | null
   /** Per-day, per-band rollup when the Host projection is available. */
   bands?: UsageBandsView
+  /**
+   * Recent requests with their start times. When the window holds every
+   * request, each one is counted in the range and day it actually ran in.
+   */
+  steps?: StepWindowInput
   /** Root conversation, or a delegated (subagent / team member) conversation. */
   kind?: AgentKind
 }

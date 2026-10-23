@@ -22,6 +22,11 @@ function bands(peak: BandModelView[], offPeak: BandModelView[]): UsageBandsView 
   return { days: [], total: { peak, offPeak } }
 }
 
+/** One rollup whose counters also appear on the given Beijing day. */
+function dayRollup(day: string, peak: BandModelView[], offPeak: BandModelView[]): UsageBandsView {
+  return { days: [{ day, peak, offPeak }], total: { peak, offPeak } }
+}
+
 describe('bandShareOf', () => {
   it('splits tokens and requests by band', () => {
     const share = bandShareOf(bands([entry(3, 300)], [entry(1, 100)]))
@@ -47,8 +52,13 @@ describe('aggregateHistory band share', () => {
     const now = Date.UTC(2026, 9, 21, 12, 0)
     const view = aggregateHistory({
       sessions: [
-        { id: 'a', updatedAt: now, model: null, bands: bands([entry(2, 200)], [entry(2, 200)]) },
-        { id: 'b', updatedAt: now, model: null, bands: bands([entry(1, 100)], []) },
+        {
+          id: 'a',
+          updatedAt: now,
+          model: null,
+          bands: dayRollup('2026-10-21', [entry(2, 200)], [entry(2, 200)]),
+        },
+        { id: 'b', updatedAt: now, model: null, bands: dayRollup('2026-10-21', [entry(1, 100)], []) },
       ],
       range: '7d',
       now,
@@ -90,7 +100,7 @@ describe('aggregateHistory band share', () => {
     const now = Date.UTC(2026, 9, 21, 12, 0)
     const view = aggregateHistory({
       sessions: [
-        { id: 'a', updatedAt: now, model: null, bands: bands([entry(1, 100)], []) },
+        { id: 'a', updatedAt: now, model: null, bands: dayRollup('2026-10-21', [entry(1, 100)], []) },
         {
           id: 'b',
           updatedAt: now,

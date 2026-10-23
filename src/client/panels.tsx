@@ -348,12 +348,14 @@ function historyRows(
 function toHistoryInput(summary: SessionSummaryLike): HistorySessionInput {
   const tokenUsage = readTokenUsage(summary.projectionValues?.tokenUsage)
   const bands = readBands(summary.projectionValues?.usageBands)
+  const steps = readSteps(summary.projectionValues?.usageSteps)
   return {
     id: summary.id,
     ...(summary.displayTitle === undefined ? {} : { title: summary.displayTitle }),
     updatedAt: summary.updatedAt,
     ...(tokenUsage === undefined ? {} : { tokenUsage }),
     ...(bands === undefined ? {} : { bands }),
+    ...(steps === undefined ? {} : { steps }),
     model: readModelSelection(summary.projectionValues?.modelSelection)?.next ?? null,
     kind: summary.origin === 'subagent' ? 'subagent' : 'root',
   }
