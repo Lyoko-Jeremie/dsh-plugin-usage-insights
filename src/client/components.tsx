@@ -387,6 +387,21 @@ export function DailyBars(props: { days: readonly DayTotal[]; t: Translate }): J
 }
 
 /**
+ * Cache-hit rate of one request.
+ *
+ * The rate reads cache reads over billed input, the same ratio the cache-hit
+ * section shows, and keeps three decimals so neighbouring requests stay
+ * comparable.
+ *
+ * @param step - one request row.
+ * @returns e.g. `99.618%`, or an em dash when the request billed no input.
+ */
+function stepCacheText(step: StepDetailView): string {
+  const billed = step.uncachedInputTokens + step.cacheReadTokens + step.cacheWriteTokens
+  return billed > 0 ? formatPercentFixed(step.cacheReadTokens / billed, 3) : '—'
+}
+
+/**
  * One row per billed request, newest first.
  *
  * Times are Beijing time because the price table's peak/off-peak windows are
@@ -414,6 +429,7 @@ export function StepTable(props: { steps: readonly StepDetailView[]; t: Translat
             <th>{props.t('steps.model')}</th>
             <th className="dsu-num">{props.t('steps.input')}</th>
             <th className="dsu-num">{props.t('steps.cacheRead')}</th>
+            <th className="dsu-num">{props.t('steps.cacheHit')}</th>
             <th className="dsu-num">{props.t('steps.output')}</th>
             <th className="dsu-num">
               {currency === null
@@ -438,6 +454,7 @@ export function StepTable(props: { steps: readonly StepDetailView[]; t: Translat
               <td className="dsu-step-model">{step.model === '' ? '—' : step.model}</td>
               <td className="dsu-num">{formatTokenCount(step.uncachedInputTokens)}</td>
               <td className="dsu-num">{formatTokenCount(step.cacheReadTokens)}</td>
+              <td className="dsu-num">{stepCacheText(step)}</td>
               <td className="dsu-num">{formatTokenCount(step.outputTokens)}</td>
               <td className="dsu-num">
                 {step.cost === null ? '—' : formatAmountFixed(step.cost.amountMicros, 6)}

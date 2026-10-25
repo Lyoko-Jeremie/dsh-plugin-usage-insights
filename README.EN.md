@@ -49,9 +49,12 @@ The plugin adds two right-Sidebar pages.
   its direct subagents' requests merged into one newest-first ledger (latest 30 rows by
   default, with the delegation-wide total). Each row carries Beijing time, peak/off-peak band,
   the source (`Root`, or the subagent's number `#1`), `turn.step`, model, input / cache read /
-  output, and that request's cost (the header names the currency; cells keep six decimals). A
-  "Show all" switch reveals every request inside the Host's retained window (latest 200 per
-  conversation by default).
+  that request's cache-hit rate / output, and that request's cost (the header names the
+  currency; cells keep six decimals). The hit rate is that request's cache reads over its
+  billed input, the same ratio the cache-hit section shows, kept at three decimals (for
+  example `99.618%`); a request that billed no prompt tokens shows `—`. A "Show all" switch
+  reveals every request inside the Host's retained window (latest 200 per conversation by
+  default).
 - **Exact band pricing**: each request is priced in the band its own start fell in, instead
   of applying one price to the whole conversation.
 - **Agent identity and subagent detail**: the header says whether the conversation is a root

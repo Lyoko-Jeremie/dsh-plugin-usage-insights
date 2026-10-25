@@ -50,6 +50,7 @@ export const zh = {
   'steps.model': '模型',
   'steps.input': '输入',
   'steps.cacheRead': '缓存读',
+  'steps.cacheHit': '缓存命中',
   'steps.output': '输出',
   'steps.cost': '费用',
   'steps.peak': '峰',

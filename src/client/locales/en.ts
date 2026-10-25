@@ -48,6 +48,7 @@ export const en = {
   'steps.model': 'Model',
   'steps.input': 'In',
   'steps.cacheRead': 'Cache',
+  'steps.cacheHit': 'Hit',
   'steps.output': 'Out',
   'steps.cost': 'Cost',
   'steps.peak': 'Peak',
