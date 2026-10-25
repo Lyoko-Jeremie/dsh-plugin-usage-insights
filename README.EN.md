@@ -33,8 +33,9 @@ The plugin adds two right-Sidebar pages.
   90% or above, amber from 70%, red below.
 - **Token figures**: the overview's Token card (including its input/output hint) uses compact
   `K` / `M` / `G` units; the remaining overview rows, session metrics, subagent detail and
-  request ledger show exact grouped integers (for example `275,123,456`); the header total,
-  context window and usage history also use compact units, with the exact value on hover.
+  request ledger show exact grouped integers (for example `275,123,456`); the header total
+  (the conversation plus its direct subagents), context window and usage history also use
+  compact units, with the exact value on hover.
 - **Context window**: the first row shows used / capacity and the occupancy percentage; the
   second row is a bar filled to that occupancy; the third row combines both — its width is the
   occupancy and its three-colour fill is the composition; the fourth row is the whole-window
@@ -61,6 +62,10 @@ The plugin adds two right-Sidebar pages.
   agent or a subagent; a subagent shows its parent conversation, and a root agent shows its
   direct subagents' count, total tokens, and cost, expandable into one row per subagent
   (requests, tokens, cache-hit rate, cost, numbered in creation order).
+- **Delegation-wide header**: the biggest figure and the cost at the top of the panel cover
+  the whole delegation tree — the conversation's own requests plus every direct subagent — and
+  the caption under the total reads `incl. N subagents`. The session overview below still
+  counts only the conversation's own requests.
 - Opening a root conversation's usage page reads the missing band rollups of its subagents
   once (at most 20), turning their figures from an amount range into exact per-band cost.
 

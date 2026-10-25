@@ -66,6 +66,7 @@ export const zh = {
   'label.requests.hint': '本对话的模型调用次数',
   'label.tokens': 'Token',
   'label.tokens.hint': '计费输入与输出之和',
+  'header.treeTotal': '含 {n} 个子代理',
   'label.input': '输入',
   'label.output': '输出',
   'label.cacheRead': '缓存读',
@@ -109,6 +110,7 @@ export const zh = {
   'cost.bandsEstimated': '按每步实际时段计价估算',
   'cost.range': '区间覆盖峰谷两档价格',
   'cost.bands': '按每步实际时段计价',
+  'cost.withChildren': '含子代理',
 
   'history.range.24h': '最近 24 小时',
   'history.range.today': '今天',

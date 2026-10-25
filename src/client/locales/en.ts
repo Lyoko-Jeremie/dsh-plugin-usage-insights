@@ -64,6 +64,7 @@ export const en = {
   'label.requests.hint': 'Model calls in this conversation',
   'label.tokens': 'Tokens',
   'label.tokens.hint': 'Billed input plus output',
+  'header.treeTotal': 'incl. {n} subagents',
   'label.input': 'In',
   'label.output': 'Out',
   'label.cacheRead': 'Cache read',
@@ -107,6 +108,7 @@ export const en = {
   'cost.bandsEstimated': 'estimated from per-request band pricing',
   'cost.range': 'range spans peak and off-peak rates',
   'cost.bands': 'priced per request band',
+  'cost.withChildren': 'incl. subagents',
 
   'history.range.24h': 'Last 24h',
   'history.range.today': 'Today',

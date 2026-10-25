@@ -4,6 +4,7 @@
  * Renders the Host-published usage projection of the conversation the tab was
  * opened on: token totals, estimated cost, context occupancy, its approximate
  * composition, and the session metrics the session-stats projection reports.
+ * The header counts the whole delegation tree, subagents included.
  */
 import type { JSX } from 'react'
 import type { CostBasis, CostView, SessionPanelProps, Translate } from './contract'
@@ -17,6 +18,7 @@ import {
   formatTokensPerSecond,
 } from '../lib/format'
 import { peakTokenShare } from '../lib/band-share.ts'
+import { treeTotals } from '../lib/tree.ts'
 import {
   bandShareText, ChildAgentsTable, CompositionBar, CompositionProgress, HitBar, HitRuler, InlineMessage,
   ProgressBar, Ring, Row, Section, Stat, StepTable, StyleTag, useHitDivisions,
@@ -29,11 +31,20 @@ import type { CompositionSegment } from './components'
  * @param props - the priced view, or null when no route could be priced.
  * @returns the rendered cost line.
  */
-function CostLine(props: { cost: CostView | null; basis: CostBasis; t: Translate }): JSX.Element {
+function CostLine(props: {
+  cost: CostView | null
+  basis: CostBasis
+  /** Direct children whose usage the amount includes; 0 without delegation. */
+  childCount: number
+  t: Translate
+}): JSX.Element {
   if (props.cost === null) {
     return (
       <div className="dsu-cost">
         <span className="dsu-cost-note">{props.t('cost.unpriced')}</span>
+        {props.childCount > 0 && (
+          <span className="dsu-cost-note">{`(${props.t('cost.withChildren')})`}</span>
+        )}
       </div>
     )
   }
@@ -49,6 +60,9 @@ function CostLine(props: { cost: CostView | null; basis: CostBasis; t: Translate
         {formatMoneyRange(props.cost.amountMicros, props.cost.amountMicrosMax, props.cost.currency)}
       </span>
       <span className="dsu-cost-note">{`(${derivation})`}</span>
+      {props.childCount > 0 && (
+        <span className="dsu-cost-note">{`(${props.t('cost.withChildren')})`}</span>
+      )}
       {!props.cost.complete && <span className="dsu-cost-note">{props.t('cost.partial')}</span>}
     </div>
   )
@@ -77,6 +91,14 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
     ]
   const avgPerTurn = view.turns > 0 ? Math.round(view.totalTokens / view.turns) : 0
   const contextLabel = context.ratio === null ? '—' : formatPercent(context.ratio)
+  // The header reports what the whole delegation tree spent: the conversation's
+  // own requests plus every subagent it delegated to.
+  const tree = treeTotals({
+    totalTokens: view.totalTokens,
+    cost: view.cost,
+    costBasis: view.costBasis,
+    children: identity.children,
+  })
   const peakShare = view.bandShare === null ? null : peakTokenShare(view.bandShare)
   const peakRingLabel = peakShare === null ? '—' : formatPercent(peakShare)
   return (
@@ -86,11 +108,19 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
         <div className="dsu-head-main">
           {view.hasUsage && (
             <>
-              <div className="dsu-head-value" title={formatTokenCount(view.totalTokens)}>
-                {formatTokens(view.totalTokens)}
+              <div className="dsu-head-value" title={formatTokenCount(tree.totalTokens)}>
+                {formatTokens(tree.totalTokens)}
               </div>
-              <div className="dsu-head-caption">{t('label.tokens')}</div>
-              <CostLine cost={view.cost} basis={view.costBasis} t={t} />
+              <div className="dsu-head-caption">
+                {t('label.tokens')}
+                {tree.childCount > 0 && ` · ${t('header.treeTotal', { n: tree.childCount })}`}
+              </div>
+              <CostLine
+                cost={tree.cost}
+                basis={tree.costBasis}
+                childCount={tree.childCount}
+                t={t}
+              />
             </>
           )}
           {running && (
