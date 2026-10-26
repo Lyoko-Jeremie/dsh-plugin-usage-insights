@@ -120,6 +120,8 @@ export const en = {
   'history.activeDays': 'Active days',
   'history.cacheHit': 'Cache hit',
   'history.daily': 'Tokens per day',
+  'history.dailyCost': 'Cost per day',
+  'history.dailyCost.note': 'Same split as the token chart: each request is priced in the day and band it ran in.',
   'history.daily.note': 'A day counts the tokens of conversations last active on it.',
   'history.daily.bandsNote': 'Each request counts on the day and band it actually ran in.',
   'history.missing': '{n} conversations have no cached usage yet',

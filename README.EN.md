@@ -94,6 +94,11 @@ The plugin adds two right-Sidebar pages.
 - Daily token chart: bars stack the peak (amber) and off-peak (green) tokens with a legend.
   Every request is grouped by the day and band it actually ran in; only conversations without
   any request-level data fall back to their last activity day and appear gray as unattributed.
+- **Cost per day**: a second bar chart priced with the same day split. Each bar is that day's
+  amount, the amber part is the cost of its peak-band requests, the green part its off-peak
+  requests, and gray marks a conversation that could only be attributed to its last activity
+  day (estimated as a peak/off-peak range). Bar heights scale to the largest day in the range,
+  and hovering shows the day's total, its per-band amounts, and the range bounds.
 - Conversations without request-level data are backfilled automatically (a *Load missing*
   control covers large catalogs).
 

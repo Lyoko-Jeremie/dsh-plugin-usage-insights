@@ -138,7 +138,8 @@ const cases = [
     ['1M', '[history.range.24h]', '[history.range.today]', '[history.range.7d]',
       '[section.agents]', '[agent.subagent]',
       '[section.sessions]', '[sessions.cache]', '[sessions.tokens]',
-      '[section.bands]', '[band.byTokens]']],
+      '[section.bands]', '[band.byTokens]',
+      '[history.daily]', '[history.dailyCost]']],
   ['history: empty', history, propsFor({}, { ids: [], byId: {} }), ['[history.empty]']],
 ]
 

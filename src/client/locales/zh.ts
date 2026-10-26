@@ -122,6 +122,8 @@ export const zh = {
   'history.activeDays': '活跃天数',
   'history.cacheHit': '缓存命中',
   'history.daily': '每日 Token',
+  'history.dailyCost': '每日费用',
+  'history.dailyCost.note': '与上栏同口径：每个请求按它实际发生的日期与时段计价。',
   'history.daily.note': '按对话最后活动日归属。',
   'history.daily.bandsNote': '按每个请求实际发生的日期与时段归属。',
   'history.missing': '{n} 个对话还没有可读的缓存用量',

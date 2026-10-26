@@ -12,8 +12,8 @@ import type { BandShareView, ChildAgentView, DayTotal, StepDetailView, Translate
 import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
 import { divisionsForWidth, hitBarRatio, hitLevel, hitTicks, hitTickLabel } from '../lib/hit-scale.ts'
 import {
-  currencySymbol, formatAmountFixed, formatBeijingTime, formatCount, formatMoneyRange, formatPercent,
-  formatPercentFixed, formatTokenCount, formatTokens,
+  currencySymbol, formatAmountFixed, formatBeijingTime, formatCount, formatMoney, formatMoneyRange,
+  formatPercent, formatPercentFixed, formatTokenCount, formatTokens,
 } from '../lib/format'
 import { css } from './styles'
 
@@ -384,6 +384,94 @@ export function DailyBars(props: { days: readonly DayTotal[]; t: Translate }): J
       )}
     </div>
   )
+}
+
+/**
+ * One column per calendar day, scaled to the largest day in the range.
+ *
+ * The bar carries the day's cost, split by the band each request ran in, so it
+ * stacks the same two colours as the daily token chart above it.
+ *
+ * @param props - ascending day totals, the price table's currency and the translate seat.
+ * @returns the rendered cost chart.
+ */
+export function DailyCostBars(props: {
+  days: readonly DayTotal[]
+  currency: string
+  t: Translate
+}): JSX.Element {
+  const days = props.days
+  if (days.length === 0) {
+    return <InlineMessage>{props.t('history.empty')}</InlineMessage>
+  }
+  let max = 0
+  for (const day of days) {
+    const amount = day.costMicros ?? 0
+    if (amount > max) max = amount
+  }
+  const first = days[0]
+  const last = days[days.length - 1]
+  return (
+    <div className="dsu-bars-wrap">
+      <div className="dsu-bars" role="img" aria-label={props.t('history.dailyCost')}>
+        {days.map((day) => {
+          const amount = day.costMicros ?? 0
+          const height = max > 0 ? (amount / max) * 100 : 0
+          const empty = height <= 0
+          return (
+            <div
+              key={day.day}
+              className={empty ? 'dsu-bar dsu-bar--empty' : 'dsu-bar'}
+              style={{ height: empty ? '2px' : `${height}%` }}
+              title={dayCostTitle(day, props.currency, props.t)}
+            >
+              {!empty && (
+                <>
+                  {day.offPeakCostMicros > 0 && (
+                    <span className="dsu-bar-seg dsu-bar-seg--off" style={{ flexGrow: day.offPeakCostMicros }} />
+                  )}
+                  {day.peakCostMicros > 0 && (
+                    <span className="dsu-bar-seg dsu-bar-seg--peak" style={{ flexGrow: day.peakCostMicros }} />
+                  )}
+                  {day.otherCostMicros > 0 && (
+                    <span className="dsu-bar-seg dsu-bar-seg--other" style={{ flexGrow: day.otherCostMicros }} />
+                  )}
+                </>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {first !== undefined && last !== undefined && first.day !== last.day && (
+        <div className="dsu-bars-axis">
+          <span>{first.day}</span>
+          <span>{last.day}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Compose one day's cost tooltip.
+ *
+ * @param day - one day total.
+ * @param currency - ISO 4217 code of the price table.
+ * @param t - translate seat.
+ * @returns the hover text, e.g. `2026-10-22 · ¥12.35 · Peak ¥9.10`.
+ */
+function dayCostTitle(day: DayTotal, currency: string, t: Translate): string {
+  const parts = [day.day]
+  if (day.costMicros === null) {
+    parts.push(t('cost.unpriced'))
+    return parts.join(' · ')
+  }
+  parts.push(formatMoneyRange(day.costMicros, day.costMicrosMax, currency))
+  if (day.peakCostMicros > 0) parts.push(`${t('steps.peak')} ${formatMoney(day.peakCostMicros, currency)}`)
+  if (day.offPeakCostMicros > 0) parts.push(`${t('steps.offPeak')} ${formatMoney(day.offPeakCostMicros, currency)}`)
+  if (day.otherCostMicros > 0) parts.push(`${t('band.other')} ${formatMoney(day.otherCostMicros, currency)}`)
+  if (day.costUnpriced) parts.push(t('cost.partial'))
+  return parts.join(' · ')
 }
 
 /**

@@ -23,6 +23,7 @@ import type {
   AgentTotals, BandModelView, BandDayView, BandShareView, CostBasis, CostView, DayTotal, HistoryRange,
   HistorySessionInput, HistorySessionRow, HistoryView, PricingTable, TokenBuckets, UsageBandsView, UsageStepView,
 } from '../client/contract.ts'
+import type { BillingBand } from '../shared/band.js'
 import { beijingDay } from '../shared/band.js'
 import { addBandEntry, emptyBandShare } from './band-share.ts'
 import { mergeCosts, priceBuckets, priceBucketsInBand } from './pricing.ts'
@@ -175,9 +176,9 @@ export function aggregateHistory(input: {
       sawBands = true
       kind.sawBands = true
       bandShareSeen = true
-      const sessionBuckets = addDayActivity(days, buckets, kind, dayTotals, bandShare)
-      const priced = priceDays(input.pricing, days)
-      sessions.push(sessionRow(session, sessionBuckets, priced?.cost ?? null, priced === null ? 'none' : 'bands'))
+      const activity = addDayActivity(days, buckets, kind, dayTotals, bandShare, input.pricing)
+      const priced = activity.priced
+      sessions.push(sessionRow(session, activity.buckets, priced?.cost ?? null, priced === null ? 'none' : 'bands'))
       if (priced === null) {
         sawUnpriced = true
         kind.sawUnpriced = true
@@ -205,7 +206,7 @@ export function aggregateHistory(input: {
         addBands(buckets, bands)
         addBands(kind, bands)
         addBands(sessionBuckets, bands)
-        for (const day of bands.days) addBandDay(dayTotals, day)
+        for (const day of bands.days) addBandDay(dayTotals, day, priceDay(input.pricing, day))
         for (const entry of bands.total.peak) addBandEntry(bandShare, entry, 'peak')
         for (const entry of bands.total.offPeak) addBandEntry(bandShare, entry, 'offPeak')
         const priced = priceBands(input.pricing, bands)
@@ -235,9 +236,9 @@ export function aggregateHistory(input: {
       sawBands = true
       kind.sawBands = true
       bandShareSeen = true
-      const sessionBuckets = addDayActivity(days, buckets, kind, dayTotals, bandShare)
-      const priced = priceDays(input.pricing, days)
-      sessions.push(sessionRow(session, sessionBuckets, priced?.cost ?? null, priced === null ? 'none' : 'bands'))
+      const activity = addDayActivity(days, buckets, kind, dayTotals, bandShare, input.pricing)
+      const priced = activity.priced
+      sessions.push(sessionRow(session, activity.buckets, priced?.cost ?? null, priced === null ? 'none' : 'bands'))
       if (priced === null) {
         sawUnpriced = true
         kind.sawUnpriced = true
@@ -268,8 +269,8 @@ export function aggregateHistory(input: {
     kind.sawFallback = true
     addBuckets(buckets, usage)
     addBuckets(kind, usage)
-    addDay(dayTotals, session.updatedAt, usage)
     const sessionCost = priceBuckets(input.pricing, session.model, usage)
+    addDay(dayTotals, session.updatedAt, usage, sessionCost)
     sessions.push(sessionRow(session, usage, sessionCost, sessionCost === null ? 'none' : 'range'))
     if (sessionCost === null) {
       sawUnpriced = true
@@ -309,12 +310,16 @@ export function aggregateHistory(input: {
 /**
  * Fold one conversation's in-range days into every running total.
  *
+ * The day's amount is priced here, so the calendar table and the daily cost
+ * chart are built from one pass over the same figure.
+ *
  * @param days - ascending day rollups inside the range.
  * @param buckets - aggregate token buckets.
  * @param kind - mutable per-kind accumulator.
  * @param dayTotals - daily totals by day key.
  * @param bandShare - peak/off-peak share of the range.
- * @returns the conversation's own token buckets.
+ * @param pricing - plugin price table.
+ * @returns the conversation's own token buckets and its priced amount.
  */
 function addDayActivity(
   days: readonly BandDayView[],
@@ -322,17 +327,25 @@ function addDayActivity(
   kind: KindAccumulator,
   dayTotals: Map<string, DayTotal>,
   bandShare: BandShareView,
-): TokenBuckets {
+  pricing: PricingTable,
+): { buckets: TokenBuckets; priced: { cost: CostView | null; unpriced: boolean } | null } {
   const sessionBuckets = emptyBuckets()
+  let cost: CostView | null = null
+  let unpriced = false
+  let seen = false
   for (const day of days) {
-    addBandDay(dayTotals, day)
+    if (day.peak.length > 0 || day.offPeak.length > 0) seen = true
+    const dayPrice = priceDay(pricing, day)
+    unpriced = unpriced || dayPrice.unpriced
+    cost = combineCosts(cost, dayPrice.cost)
+    addBandDay(dayTotals, day, dayPrice)
     addDayBuckets(sessionBuckets, day)
     for (const entry of day.peak) addBandEntry(bandShare, entry, 'peak')
     for (const entry of day.offPeak) addBandEntry(bandShare, entry, 'offPeak')
   }
   addBuckets(buckets, sessionBuckets)
   addBuckets(kind, sessionBuckets)
-  return sessionBuckets
+  return { buckets: sessionBuckets, priced: seen ? { cost, unpriced } : null }
 }
 
 /**
@@ -485,8 +498,9 @@ function addModelBuckets(totals: TokenBuckets, entry: BandModelView): void {
  *
  * @param totals - day totals by key.
  * @param day - one Beijing day split by band.
+ * @param priced - the day's amounts split by band.
  */
-function addBandDay(totals: Map<string, DayTotal>, day: BandDayView): void {
+function addBandDay(totals: Map<string, DayTotal>, day: BandDayView, priced: DayPrice): void {
   let totalTokens = 0
   let inputTokens = 0
   let outputTokens = 0
@@ -516,10 +530,19 @@ function addBandDay(totals: Map<string, DayTotal>, day: BandDayView): void {
     sessions += entry.requests
   }
   const existing = totals.get(day.day)
+  const cost = priced.cost
   if (existing === undefined) {
     totals.set(day.day, {
       day: day.day, totalTokens, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, sessions,
       peakTokens, offPeakTokens, unattributedTokens: 0,
+      costMicros: cost?.amountMicros ?? null,
+      ...(cost?.amountMicrosMax !== undefined && cost.amountMicrosMax !== cost.amountMicros
+        ? { costMicrosMax: cost.amountMicrosMax }
+        : {}),
+      peakCostMicros: priced.peak?.amountMicros ?? 0,
+      offPeakCostMicros: priced.offPeak?.amountMicros ?? 0,
+      otherCostMicros: 0,
+      costUnpriced: priced.unpriced,
     })
     return
   }
@@ -531,45 +554,26 @@ function addBandDay(totals: Map<string, DayTotal>, day: BandDayView): void {
   existing.sessions += sessions
   existing.peakTokens += peakTokens
   existing.offPeakTokens += offPeakTokens
+  existing.costUnpriced = existing.costUnpriced || priced.unpriced
+  addCostAmount(existing, cost)
+  existing.peakCostMicros += priced.peak?.amountMicros ?? 0
+  existing.offPeakCostMicros += priced.offPeak?.amountMicros ?? 0
 }
 
 /**
- * Price one conversation's in-range days.
+ * Add one priced amount to an existing day total.
  *
- * @param pricing - plugin price table.
- * @param days - day rollups inside the range.
- * @returns merged cost plus whether any entry stayed unpriced, or null when the
- *   days carry no request.
+ * @param target - the day total.
+ * @param cost - the amount, or null when this part could not be priced.
  */
-function priceDays(
-  pricing: PricingTable,
-  days: readonly BandDayView[],
-): { cost: CostView | null; unpriced: boolean } | null {
-  let cost: CostView | null = null
-  let unpriced = false
-  let seen = false
-  for (const day of days) {
-    for (const [band, entries] of [['peak', day.peak], ['off-peak', day.offPeak]] as const) {
-      for (const entry of entries) {
-        seen = true
-        const route = entry.provider.length > 0 && entry.model.length > 0
-          ? { provider: entry.provider, model: entry.model }
-          : null
-        const priced = priceBucketsInBand(pricing, route, {
-          uncachedInputTokens: entry.uncachedInputTokens,
-          cacheReadTokens: entry.cacheReadTokens,
-          cacheWriteTokens: entry.cacheWriteTokens,
-          outputTokens: entry.outputTokens,
-        }, band)
-        if (priced === null) {
-          unpriced = true
-          continue
-        }
-        cost = cost === null ? priced : mergeCosts(cost, priced)
-      }
-    }
-  }
-  return seen ? { cost, unpriced } : null
+function addCostAmount(target: DayTotal, cost: CostView | null): void {
+  if (cost === null) return
+  const priorLow = target.costMicros ?? 0
+  const priorHigh = target.costMicrosMax ?? priorLow
+  const nextLow = priorLow + cost.amountMicros
+  const nextHigh = priorHigh + (cost.amountMicrosMax ?? cost.amountMicros)
+  target.costMicros = nextLow
+  if (nextHigh !== nextLow) target.costMicrosMax = nextHigh
 }
 
 /**
@@ -583,29 +587,106 @@ function priceBands(
   pricing: PricingTable,
   bands: UsageBandsView,
 ): { cost: CostView | null; unpriced: boolean } | null {
+  if (bands.total.peak.length === 0 && bands.total.offPeak.length === 0) return null
+  const peak = priceBandEntries(pricing, bands.total.peak, 'peak')
+  const offPeak = priceBandEntries(pricing, bands.total.offPeak, 'off-peak')
+  return {
+    cost: combineCosts(peak.cost, offPeak.cost),
+    unpriced: peak.unpriced || offPeak.unpriced,
+  }
+}
+
+/** One day's amount, split by the band each request ran in. */
+interface DayPrice {
+  /** Whole-day amount, or null when no entry of the day had a price. */
+  cost: CostView | null
+  /** Peak-band amount, or null when the day had no peak request. */
+  peak: CostView | null
+  /** Off-peak-band amount, or null when the day had no off-peak request. */
+  offPeak: CostView | null
+  /** Whether some entry of the day had no configured price. */
+  unpriced: boolean
+}
+
+/**
+ * Price one Beijing day.
+ *
+ * The two bands are priced separately, so the daily cost chart can stack them
+ * like the daily token chart stacks their tokens.
+ *
+ * @param pricing - plugin price table.
+ * @param day - one day split by band.
+ * @returns the day's amount, its per-band parts, and whether anything stayed unpriced.
+ */
+function priceDay(pricing: PricingTable, day: BandDayView): DayPrice {
+  const peak = priceBandEntries(pricing, day.peak, 'peak')
+  const offPeak = priceBandEntries(pricing, day.offPeak, 'off-peak')
+  return {
+    cost: combineCosts(peak.cost, offPeak.cost),
+    peak: peak.cost,
+    offPeak: offPeak.cost,
+    unpriced: peak.unpriced || offPeak.unpriced,
+  }
+}
+
+/**
+ * Price one band's model entries.
+ *
+ * @param pricing - plugin price table.
+ * @param entries - one band's per-model counters.
+ * @param band - the band those requests ran in.
+ * @returns merged amount plus whether any entry stayed unpriced.
+ */
+function priceBandEntries(
+  pricing: PricingTable,
+  entries: readonly BandModelView[],
+  band: BillingBand,
+): { cost: CostView | null; unpriced: boolean } {
   let cost: CostView | null = null
   let unpriced = false
-  let seen = false
-  for (const [band, entries] of [['peak', bands.total.peak], ['off-peak', bands.total.offPeak]] as const) {
-    for (const entry of entries) {
-      seen = true
-      const route = entry.provider.length > 0 && entry.model.length > 0
-        ? { provider: entry.provider, model: entry.model }
-        : null
-      const priced = priceBucketsInBand(pricing, route, {
-        uncachedInputTokens: entry.uncachedInputTokens,
-        cacheReadTokens: entry.cacheReadTokens,
-        cacheWriteTokens: entry.cacheWriteTokens,
-        outputTokens: entry.outputTokens,
-      }, band)
-      if (priced === null) {
-        unpriced = true
-        continue
-      }
-      cost = cost === null ? priced : mergeCosts(cost, priced)
+  for (const entry of entries) {
+    const route = entry.provider.length > 0 && entry.model.length > 0
+      ? { provider: entry.provider, model: entry.model }
+      : null
+    const priced = priceBucketsInBand(pricing, route, modelBuckets(entry), band)
+    if (priced === null) {
+      unpriced = true
+      continue
     }
+    cost = cost === null ? priced : mergeCosts(cost, priced)
   }
-  return seen ? { cost, unpriced } : null
+  return { cost, unpriced }
+}
+
+/**
+ * Merge the two bands of one day.
+ *
+ * An absent side means the day ran no request in that band, not that a request
+ * could not be priced, so it never marks the amount incomplete.
+ *
+ * @param left - peak amount or null.
+ * @param right - off-peak amount or null.
+ * @returns the combined amount, or null when both sides are absent.
+ */
+function combineCosts(left: CostView | null, right: CostView | null): CostView | null {
+  if (left === null) return right
+  if (right === null) return left
+  return mergeCosts(left, right)
+}
+
+/**
+ * Copy one model entry's token counters.
+ *
+ * @param entry - one model's counters inside one band.
+ * @returns its four buckets.
+ */
+function modelBuckets(entry: BandModelView): TokenBuckets {
+  return {
+    uncachedInputTokens: entry.uncachedInputTokens,
+    cacheReadTokens: entry.cacheReadTokens,
+    cacheWriteTokens: entry.cacheWriteTokens,
+    outputTokens: entry.outputTokens,
+  }
 }
 
 /**
@@ -624,13 +705,23 @@ function addBuckets(totals: TokenBuckets, usage: TokenBuckets): void {
 /**
  * Add one fallback conversation to its activity day.
  *
+ * Its amount comes from cumulative counters, so the day records it outside the
+ * band split: the log never said which band those requests ran in.
+ *
  * @param totals - day totals by key.
  * @param updatedAt - the conversation's last durable activity.
  * @param usage - the conversation's token buckets.
+ * @param cost - the conversation's priced amount, or null when unpriced.
  */
-function addDay(totals: Map<string, DayTotal>, updatedAt: number, usage: TokenBuckets): void {
+function addDay(
+  totals: Map<string, DayTotal>,
+  updatedAt: number,
+  usage: TokenBuckets,
+  cost: CostView | null,
+): void {
   const day = dayKey(updatedAt)
   const tokens = sumBuckets(usage)
+  const amount = cost?.amountMicros ?? 0
   const existing = totals.get(day)
   if (existing === undefined) {
     totals.set(day, {
@@ -644,6 +735,14 @@ function addDay(totals: Map<string, DayTotal>, updatedAt: number, usage: TokenBu
       peakTokens: 0,
       offPeakTokens: 0,
       unattributedTokens: tokens,
+      costMicros: cost?.amountMicros ?? null,
+      ...(cost?.amountMicrosMax !== undefined && cost.amountMicrosMax !== cost.amountMicros
+        ? { costMicrosMax: cost.amountMicrosMax }
+        : {}),
+      peakCostMicros: 0,
+      offPeakCostMicros: 0,
+      otherCostMicros: amount,
+      costUnpriced: cost === null,
     })
     return
   }
@@ -654,6 +753,9 @@ function addDay(totals: Map<string, DayTotal>, updatedAt: number, usage: TokenBu
   existing.cacheWriteTokens += usage.cacheWriteTokens
   existing.sessions += 1
   existing.unattributedTokens += tokens
+  existing.costUnpriced = existing.costUnpriced || cost === null
+  addCostAmount(existing, cost)
+  existing.otherCostMicros += amount
 }
 
 /**

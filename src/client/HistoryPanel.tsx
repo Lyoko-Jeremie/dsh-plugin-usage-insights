@@ -10,7 +10,7 @@ import type { AgentTotals, CostView, HistoryPanelProps, HistoryRange, HistorySes
 import {
   currencySymbol, formatAmountFixed, formatCount, formatMoneyRange, formatPercent, formatTokenCount, formatTokens,
 } from '../lib/format'
-import { bandShareText, DailyBars, InlineMessage, Row, Section, Stat, StyleTag } from './components'
+import { bandShareText, DailyBars, DailyCostBars, InlineMessage, Row, Section, Stat, StyleTag } from './components'
 
 /**
  * Summarize one agent kind on a single line.
@@ -170,6 +170,16 @@ export function HistoryPanel(props: HistoryPanelProps): JSX.Element {
             <div className="dsu-note">
               {view.costBasis === 'bands' ? t('history.daily.bandsNote') : t('history.daily.note')}
             </div>
+          </Section>
+          <Section title={t('history.dailyCost')}>
+            {costCurrency === null
+              ? <InlineMessage>{t('cost.unpriced')}</InlineMessage>
+              : (
+                <>
+                  <DailyCostBars days={view.days} currency={costCurrency} t={t} />
+                  <div className="dsu-note">{t('history.dailyCost.note')}</div>
+                </>
+              )}
           </Section>
           {view.sessions.length > 0 && (
             <details className="dsu-steps-details">

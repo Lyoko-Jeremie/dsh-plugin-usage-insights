@@ -247,6 +247,21 @@ export interface DayTotal {
   offPeakTokens: number
   /** Tokens that could not be attributed to a band. */
   unattributedTokens: number
+  /**
+   * Amount billed on this day in micro units, the lower bound of a range
+   * estimate; null when nothing on the day could be priced.
+   */
+  costMicros: number | null
+  /** Upper bound of `costMicros` when part of the day is a peak/off-peak estimate; absent for one amount. */
+  costMicrosMax?: number
+  /** Peak-band part of `costMicros`. */
+  peakCostMicros: number
+  /** Off-peak-band part of `costMicros`. */
+  offPeakCostMicros: number
+  /** Part of `costMicros` whose band the log could not attribute. */
+  otherCostMicros: number
+  /** Whether part of the day's usage had no configured price. */
+  costUnpriced: boolean
 }
 
 /** The range filter of the cross-conversation view. */

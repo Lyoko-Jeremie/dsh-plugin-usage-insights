@@ -93,6 +93,11 @@ describe('aggregateHistory band share', () => {
       peakTokens: 200,
       offPeakTokens: 100,
       unattributedTokens: 0,
+      costMicros: null,
+      peakCostMicros: 0,
+      offPeakCostMicros: 0,
+      otherCostMicros: 0,
+      costUnpriced: true,
     }])
   })
 

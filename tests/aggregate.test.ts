@@ -278,6 +278,11 @@ describe('aggregateHistory', () => {
         peakTokens: 0,
         offPeakTokens: 0,
         unattributedTokens: 10,
+        costMicros: null,
+        peakCostMicros: 0,
+        offPeakCostMicros: 0,
+        otherCostMicros: 0,
+        costUnpriced: true,
       },
       {
         day: '2024-05-10',
@@ -290,6 +295,11 @@ describe('aggregateHistory', () => {
         peakTokens: 0,
         offPeakTokens: 0,
         unattributedTokens: 348,
+        costMicros: null,
+        peakCostMicros: 0,
+        offPeakCostMicros: 0,
+        otherCostMicros: 0,
+        costUnpriced: true,
       },
     ])
     expect(view.totalTokens).toBe(358)
@@ -667,5 +677,125 @@ describe('aggregateHistory request timing', () => {
     expect(view.sessionCount).toBe(0)
     expect(view.totalTokens).toBe(0)
     expect(view.sessions).toEqual([])
+  })
+})
+
+describe('aggregateHistory daily cost', () => {
+  const route = { provider: 'alpha', model: 'chat' }
+
+  /** Peak input costs 10 per million, off-peak 5; every other bucket is free. */
+  const bandPricing: PricingTable = {
+    currency: 'USD',
+    prices: [{
+      provider: 'alpha',
+      model: 'chat',
+      input: 10,
+      cacheRead: 0,
+      cacheWrite: 0,
+      output: 0,
+      offPeak: { input: 5, cacheRead: 0, cacheWrite: 0, output: 0 },
+    }],
+  }
+
+  /** One model entry for a day rollup. */
+  function entry(uncachedInputTokens: number) {
+    return {
+      provider: 'alpha', model: 'chat', requests: 1,
+      uncachedInputTokens, cacheReadTokens: 0, cacheWriteTokens: 0,
+      outputTokens: 0, reasoningTokens: 0,
+    }
+  }
+
+  it('prices each day in the band its own requests ran in', () => {
+    const now = localDay(2024, 6, 15, 12, 0)
+    const sessions = [
+      session('spans', now, {
+        model: route,
+        steps: windowOf(
+          step(localDay(2024, 6, 10, 9, 0), { uncachedInputTokens: 1_000_000 }, 'peak'),
+          step(localDay(2024, 6, 15, 21, 0), { uncachedInputTokens: 2_000_000 }, 'off-peak'),
+        ),
+      }),
+    ]
+    const view = aggregateHistory({ sessions, range: '7d', now, pricing: bandPricing })
+    expect(view.days.map(day => [
+      day.day, day.costMicros, day.peakCostMicros, day.offPeakCostMicros, day.otherCostMicros,
+    ])).toEqual([
+      ['2024-06-10', 10_000_000, 10_000_000, 0, 0],
+      ['2024-06-15', 10_000_000, 0, 10_000_000, 0],
+    ])
+    expect(view.days[0]?.costMicrosMax).toBeUndefined()
+    expect(view.days[0]?.costUnpriced).toBe(false)
+  })
+
+  it('prices the rollup days a bounded range includes', () => {
+    const now = localDay(2024, 6, 15, 12, 0)
+    const sessions = [
+      session('spans', now, {
+        model: route,
+        bands: {
+          days: [
+            { day: '2024-06-01', peak: [entry(999)], offPeak: [] },
+            { day: '2024-06-10', peak: [entry(1_000_000)], offPeak: [] },
+            { day: '2024-06-15', peak: [], offPeak: [entry(2_000_000)] },
+          ],
+          total: { peak: [entry(999), entry(1_000_000)], offPeak: [entry(2_000_000)] },
+        },
+      }),
+    ]
+    const view = aggregateHistory({ sessions, range: '7d', now, pricing: bandPricing })
+    expect(view.days.map(day => [day.day, day.costMicros])).toEqual([
+      ['2024-06-10', 10_000_000],
+      ['2024-06-15', 10_000_000],
+    ])
+  })
+
+  it('keeps a fallback day as an amount range outside the band split', () => {
+    const now = localDay(2024, 6, 15, 12, 0)
+    const sessions = [
+      session('fallback', now, { model: route, tokenUsage: tokens({ uncachedInputTokens: 1_000_000 }) }),
+    ]
+    const view = aggregateHistory({ sessions, range: '7d', now, pricing: bandPricing })
+    const day = view.days[0]
+    expect(day?.costMicros).toBe(5_000_000)
+    expect(day?.costMicrosMax).toBe(10_000_000)
+    expect(day?.peakCostMicros).toBe(0)
+    expect(day?.offPeakCostMicros).toBe(0)
+    expect(day?.otherCostMicros).toBe(5_000_000)
+    expect(day?.costUnpriced).toBe(false)
+  })
+
+  it('adds a per-band day and a range-estimated day into one amount', () => {
+    const now = localDay(2024, 6, 15, 12, 0)
+    const sessions = [
+      session('bands', now, {
+        model: route,
+        bands: {
+          days: [{ day: '2024-06-15', peak: [entry(1_000_000)], offPeak: [] }],
+          total: { peak: [entry(1_000_000)], offPeak: [] },
+        },
+      }),
+      session('fallback', now, { model: route, tokenUsage: tokens({ uncachedInputTokens: 1_000_000 }) }),
+    ]
+    const view = aggregateHistory({ sessions, range: '7d', now, pricing: bandPricing })
+    const day = view.days[0]
+    expect(day?.costMicros).toBe(15_000_000)
+    expect(day?.costMicrosMax).toBe(20_000_000)
+    expect(day?.peakCostMicros).toBe(10_000_000)
+    expect(day?.offPeakCostMicros).toBe(0)
+    expect(day?.otherCostMicros).toBe(5_000_000)
+  })
+
+  it('leaves a day unpriced when no route matches the price table', () => {
+    const now = localDay(2024, 6, 15, 12, 0)
+    const sessions = [
+      session('a', now, {
+        model: route,
+        steps: windowOf(step(now, { uncachedInputTokens: 10 })),
+      }),
+    ]
+    const view = aggregateHistory({ sessions, range: '7d', now, pricing: { currency: 'CNY', prices: [] } })
+    expect(view.days[0]?.costMicros).toBeNull()
+    expect(view.days[0]?.costUnpriced).toBe(true)
   })
 })
