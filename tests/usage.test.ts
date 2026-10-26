@@ -104,6 +104,7 @@ describe('deriveSessionUsage', () => {
       costBasis: 'range',
       stepActivity: null,
       bandShare: null,
+      costBandShare: null,
       compactionThreshold: null,
       hasUsage: false,
     })

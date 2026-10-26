@@ -6,7 +6,7 @@
  * storage.
  */
 import type {
-  BandModelView, BreakdownView, CacheHitView, CostBasis, CostView, ModelRef, PricingTable,
+  BandModelView, BreakdownView, CacheHitView, CostBandShare, CostBasis, CostView, ModelRef, PricingTable,
   SessionUsageView, StepActivityView, StepDetailView, TokenBuckets, UsageBandsView, UsageStepView,
 } from '../client/contract.ts'
 import { bandShareOf } from './band-share.ts'
@@ -88,6 +88,7 @@ export function deriveSessionUsage(input: SessionUsageInput): SessionUsageView {
     costBasis: priced.basis,
     stepActivity: steps,
     bandShare: bandShareOf(input.bands),
+    costBandShare: priced.bandCosts,
     compactionThreshold: input.compaction?.thresholdRatio ?? null,
     hasUsage: totalTokens > 0,
   }
@@ -140,13 +141,14 @@ function hitRatio(buckets: {
  * @param input - projection values and price table.
  * @param model - route used when only the cumulative counters exist.
  * @param buckets - cumulative buckets.
- * @returns the cost view and how it was derived.
+ * @returns the cost view, how it was derived, and the per-band amount split
+ *   when every band could be priced.
  */
 function deriveCost(
   input: SessionUsageInput,
   model: ModelRef | null,
   buckets: TokenBuckets,
-): { cost: CostView | null; basis: CostBasis } {
+): { cost: CostView | null; basis: CostBasis; bandCosts: CostBandShare | null } {
   const bands = input.bands
   if (bands !== null && bands !== undefined) {
     const peak = priceBand(bands.total.peak, 'peak', input.pricing, model)
@@ -162,11 +164,21 @@ function deriveCost(
         : offPeakCost === null ? peakCost : mergeCosts(peakCost, offPeakCost)
       if (merged !== null) {
         const complete = merged.complete && (peak?.unpriced !== true) && (offPeak?.unpriced !== true)
-        return { cost: complete === merged.complete ? merged : { ...merged, complete }, basis: 'bands' }
+        return {
+          cost: complete === merged.complete ? merged : { ...merged, complete },
+          basis: 'bands',
+          // A partly unpriced rollup cannot say what the band split really was.
+          bandCosts: complete
+            ? {
+              peakMicros: peakCost?.amountMicros ?? 0,
+              offPeakMicros: offPeakCost?.amountMicros ?? 0,
+            }
+            : null,
+        }
       }
     }
   }
-  return { cost: priceBuckets(input.pricing, model, buckets), basis: 'range' }
+  return { cost: priceBuckets(input.pricing, model, buckets), basis: 'range', bandCosts: null }
 }
 
 /**

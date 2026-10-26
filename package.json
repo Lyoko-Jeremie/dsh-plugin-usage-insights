@@ -1,6 +1,6 @@
 {
   "name": "dsh-usage-insights",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "private": true,
   "type": "module",
   "description": "Token usage, context occupancy, session metrics and cross-session totals in the DeepSeek Harness right sidebar.",

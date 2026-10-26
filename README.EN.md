@@ -42,8 +42,12 @@ The plugin adds two right-Sidebar pages.
   composition bar, followed by a colour legend with each part's figure. When the Host can read
   the automatic-compaction threshold, the first two bars carry an amber marker and the first row
   says `Auto-compact 50%`.
-- **Peak/off-peak ring**: a second ring left of the context ring draws the peak share as an
-  amber arc over a green off-peak track, with the peak percentage in the center (by tokens).
+- **Peak/off-peak rings**: two rings sit left of the context ring. `Peak/off (tokens)`
+  splits the token counts by band, and `Peak/off (cost)` splits what those same requests
+  actually cost in each band. Each draws the peak share as an amber arc over a green
+  off-peak track with the percentage in the center, and its tooltip spells out both sides.
+  Peak rates are higher, so the two shares usually differ — that gap is how the bands affect
+  spending.
 - **Session metrics**: turns, steps, tokens per turn, model time, tool time, first-token
   latency, decode speed.
 - **Request table** (collapsed by default, click to expand): the root agent's requests and

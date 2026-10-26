@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import type { JSX, ReactNode, RefObject } from 'react'
-import type { BandShareView, ChildAgentView, DayTotal, StepDetailView, Translate } from './contract'
+import type { BandShareView, ChildAgentView, CostBandShare, DayTotal, StepDetailView, Translate } from './contract'
 import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
 import { divisionsForWidth, hitBarRatio, hitLevel, hitTicks, hitTickLabel } from '../lib/hit-scale.ts'
 import {
@@ -567,6 +567,27 @@ export function bandShareText(share: BandShareView, t: Translate, basis: 'tokens
   const ratio = basis === 'tokens' ? peakTokenShare(share) : peakRequestShare(share)
   if (ratio === null) return '—'
   return `${t('steps.peak')} ${formatPercent(ratio)} · ${t('steps.offPeak')} ${formatPercent(1 - ratio)}`
+}
+
+/**
+ * Describe one conversation's amount split by billing band.
+ *
+ * The same requests cost different amounts in the two bands, so the ring can
+ * differ from the token ring beside it; the tooltip spells out both amounts.
+ *
+ * @param share - amount split, or null without per-band pricing.
+ * @param currency - ISO 4217 code of the price table.
+ * @param t - translate seat.
+ * @returns e.g. `峰 ¥12.34 · 谷 ¥5.67`, or an em dash without data.
+ */
+export function costBandShareText(
+  share: CostBandShare | null,
+  currency: string,
+  t: Translate,
+): string {
+  if (share === null) return '—'
+  return `${t('steps.peak')} ${formatMoney(share.peakMicros, currency)} · `
+    + `${t('steps.offPeak')} ${formatMoney(share.offPeakMicros, currency)}`
 }
 
 /**

@@ -138,6 +138,19 @@ export interface BandShareView {
   offPeakRequests: number
 }
 
+/**
+ * One conversation's amount split by billing band.
+ *
+ * Peak and off-peak rates differ, so the cost split of the same requests does
+ * not repeat their token split; the header shows both rings for that reason.
+ */
+export interface CostBandShare {
+  /** Peak-band amount in micro units (1e-6 of the currency). */
+  peakMicros: number
+  /** Off-peak-band amount in micro units. */
+  offPeakMicros: number
+}
+
 /** The recent requests a session's `usageSteps` view carries. */
 export interface StepActivityView {
   /** Newest last; bounded by the Host's configured window. */
@@ -221,6 +234,11 @@ export interface SessionUsageView {
   stepActivity: StepActivityView | null
   /** Peak/off-peak split of the same conversation; null without a band rollup. */
   bandShare: BandShareView | null
+  /**
+   * Peak/off-peak split of the conversation's own amount; null when the log
+   * carries no per-band rollup or part of it could not be priced.
+   */
+  costBandShare: CostBandShare | null
   /**
    * Resolved automatic-compaction pressure as a fraction of the context window,
    * or null when no compaction backend exposed one.

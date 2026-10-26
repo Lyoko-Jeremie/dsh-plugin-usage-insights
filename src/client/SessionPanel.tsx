@@ -17,11 +17,11 @@ import {
   formatTokens,
   formatTokensPerSecond,
 } from '../lib/format'
-import { peakTokenShare } from '../lib/band-share.ts'
+import { peakAmountShare, peakTokenShare } from '../lib/band-share.ts'
 import { treeTotals } from '../lib/tree.ts'
 import {
-  bandShareText, ChildAgentsTable, CompositionBar, CompositionProgress, HitBar, HitRuler, InlineMessage,
-  ProgressBar, Ring, Row, Section, Stat, StepTable, StyleTag, useHitDivisions,
+  bandShareText, ChildAgentsTable, CompositionBar, CompositionProgress, costBandShareText, HitBar, HitRuler,
+  InlineMessage, ProgressBar, Ring, Row, Section, Stat, StepTable, StyleTag, useHitDivisions,
 } from './components'
 import type { CompositionSegment } from './components'
 
@@ -101,6 +101,11 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
   })
   const peakShare = view.bandShare === null ? null : peakTokenShare(view.bandShare)
   const peakRingLabel = peakShare === null ? '—' : formatPercent(peakShare)
+  // The amount splits by band differently from the tokens: peak requests cost
+  // more per token, so the cost ring is its own figure rather than a repeat.
+  const costPeakShare = peakAmountShare(view.costBandShare)
+  const costRingLabel = costPeakShare === null ? '—' : formatPercent(costPeakShare)
+  const currency = view.cost?.currency ?? ''
   return (
     <div className="dsu-root">
       <StyleTag />
@@ -130,6 +135,17 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
           )}
         </div>
         <div className="dsu-head-side">
+          {costPeakShare !== null && view.costBandShare !== null && (
+            <div className="dsu-ring-block">
+              <Ring
+                ratio={costPeakShare}
+                label={costRingLabel}
+                tone="band"
+                description={costBandShareText(view.costBandShare, currency, t)}
+              />
+              <span className="dsu-head-side-caption">{t('label.bandShare.cost')}</span>
+            </div>
+          )}
           {peakShare !== null && view.bandShare !== null && (
             <div className="dsu-ring-block">
               <Ring

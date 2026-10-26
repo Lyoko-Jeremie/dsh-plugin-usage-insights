@@ -142,6 +142,9 @@ export const css = `
   display: flex;
   flex-direction: row;
   align-items: flex-start;
+  justify-content: flex-end;
+  /* Three rings must survive a narrow sidebar; they wrap rather than clip. */
+  flex-wrap: wrap;
   gap: 12px;
   flex: 0 0 auto;
 }

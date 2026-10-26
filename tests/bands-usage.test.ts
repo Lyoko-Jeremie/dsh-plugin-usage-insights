@@ -54,6 +54,35 @@ describe('deriveSessionUsage with Host projections', () => {
     })
   })
 
+  it('reports the amount split of the same bands', () => {
+    const view = deriveSessionUsage({ bands, pricing })
+    // Same million tokens in each band, but peak input costs twice as much.
+    expect(view.costBandShare).toEqual({ peakMicros: 2_000_000, offPeakMicros: 1_000_000 })
+    expect(view.cost?.currency).toBe('CNY')
+  })
+
+  it('reports no amount split when only cumulative counters exist', () => {
+    const view = deriveSessionUsage({
+      tokenUsage: { uncachedInputTokens: 1_000_000, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0 },
+      modelSelection: { lastUsed: { provider: 'deepseek', model: 'deepseek-flash' }, next: null },
+      pricing,
+    })
+    expect(view.costBandShare).toBeNull()
+  })
+
+  it('reports no amount split when part of the rollup is unpriced', () => {
+    const unpricedEntry: BandModelView = { ...entry(1, 1_000_000), provider: 'other', model: 'unknown' }
+    const view = deriveSessionUsage({
+      bands: {
+        days: [],
+        total: { peak: [entry(1, 1_000_000)], offPeak: [unpricedEntry] },
+      },
+      pricing,
+    })
+    expect(view.cost?.complete).toBe(false)
+    expect(view.costBandShare).toBeNull()
+  })
+
   it('falls back to a range when the rollup is absent', () => {
     const view = deriveSessionUsage({
       tokenUsage: { uncachedInputTokens: 1_000_000, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0 },

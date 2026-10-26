@@ -6,7 +6,7 @@
  * cannot be attributed to a band. Callers therefore treat `null` as "no band
  * data", never as zero.
  */
-import type { BandModelView, BandShareView, UsageBandsView } from '../client/contract.ts'
+import type { BandModelView, BandShareView, CostBandShare, UsageBandsView } from '../client/contract.ts'
 
 /**
  * Split one rollup's lifetime counters by billing band.
@@ -87,4 +87,16 @@ export function peakRequestShare(share: BandShareView | null): number | null {
   if (share === null) return null
   const requests = share.peakRequests + share.offPeakRequests
   return requests > 0 ? share.peakRequests / requests : null
+}
+
+/**
+ * Peak share of one conversation's amount.
+ *
+ * @param share - amount split by band, or null without per-band pricing.
+ * @returns a ratio in [0, 1], or null when the split carries no amount.
+ */
+export function peakAmountShare(share: CostBandShare | null): number | null {
+  if (share === null) return null
+  const total = share.peakMicros + share.offPeakMicros
+  return total > 0 ? share.peakMicros / total : null
 }
