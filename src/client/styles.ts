@@ -194,6 +194,22 @@ export const css = `
   color: var(--dsw-alias-label-tertiary);
 }
 
+.dsu-head-sub {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 5px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dsu-head-sub b {
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary);
+}
+
 .dsu-running {
   display: inline-flex;
   align-items: center;

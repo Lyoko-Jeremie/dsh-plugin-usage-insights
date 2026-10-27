@@ -17,7 +17,7 @@ import {
   formatTokens,
   formatTokensPerSecond,
 } from '../lib/format'
-import { peakAmountShare, peakTokenShare } from '../lib/band-share.ts'
+import { impliedBandPriceRatio, peakAmountShare, peakTokenShare } from '../lib/band-share.ts'
 import { treeTotals } from '../lib/tree.ts'
 import {
   bandShareText, ChildAgentsTable, CompositionBar, CompositionProgress, costBandShareText, HitBar, HitRuler,
@@ -106,6 +106,13 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
   const costPeakShare = peakAmountShare(view.costBandShare)
   const costRingLabel = costPeakShare === null ? '—' : formatPercent(costPeakShare)
   const currency = view.cost?.currency ?? ''
+  // The two band rings report each split separately; their quotient is the
+  // weighted unit price the conversation actually paid. It reproduces the
+  // configured table's peak multiple when the pricing lines up, and diverges
+  // when the two mixes differ — routes, cache hit rate, or an outdated table.
+  const bandPriceRatio = view.bandShare !== null && view.costBandShare !== null
+    ? impliedBandPriceRatio(view.bandShare, view.costBandShare)
+    : null
   return (
     <div className="dsu-root">
       <StyleTag />
@@ -126,6 +133,17 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
                 childCount={tree.childCount}
                 t={t}
               />
+              {bandPriceRatio !== null && view.bandShare !== null && view.costBandShare !== null && (
+                <div
+                  className="dsu-head-sub"
+                  title={`${bandShareText(view.bandShare, t, 'tokens')} · ${
+                    costBandShareText(view.costBandShare, currency, t)} · ${t('band.ratio.hint')}`}
+                >
+                  <span>{t('band.ratio')}</span>
+                  <b>{`×${bandPriceRatio.toFixed(2)}`}</b>
+                  {tree.childCount > 0 && <span>{t('band.ratio.scope')}</span>}
+                </div>
+              )}
             </>
           )}
           {running && (

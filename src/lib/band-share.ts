@@ -100,3 +100,30 @@ export function peakAmountShare(share: CostBandShare | null): number | null {
   const total = share.peakMicros + share.offPeakMicros
   return total > 0 ? share.peakMicros / total : null
 }
+
+/**
+ * Peak unit price over off-peak unit price, implied by two band splits.
+ *
+ * Each band's amount is divided by that band's own tokens, so the result is the
+ * weighted price ratio the conversation actually paid — not a re-read of the
+ * price table. A correct table reproduces its own peak/off-peak multiple here;
+ * a different number means the two mixes differ (routes, cache hit rate, or an
+ * outdated table). Both sides must carry tokens and money: a single-band
+ * conversation has no ratio to report and yields null.
+ *
+ * @param tokenShare - token split by band, or null without a rollup.
+ * @param costShare - amount split by band, or null without per-band pricing.
+ * @returns the peak/off-peak unit-price multiple, or null when unavailable.
+ */
+export function impliedBandPriceRatio(
+  tokenShare: BandShareView | null,
+  costShare: CostBandShare | null,
+): number | null {
+  if (tokenShare === null || costShare === null) return null
+  const { peakTokens, offPeakTokens } = tokenShare
+  const { peakMicros, offPeakMicros } = costShare
+  if (peakTokens <= 0 || offPeakTokens <= 0) return null
+  if (peakMicros <= 0 || offPeakMicros <= 0) return null
+  const ratio = (peakMicros / peakTokens) / (offPeakMicros / offPeakTokens)
+  return Number.isFinite(ratio) && ratio > 0 ? ratio : null
+}

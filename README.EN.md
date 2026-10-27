@@ -48,6 +48,12 @@ The plugin adds two right-Sidebar pages.
   off-peak track with the percentage in the center, and its tooltip spells out both sides.
   Peak rates are higher, so the two shares usually differ — that gap is how the bands affect
   spending.
+- **Peak/off price ratio**: one small line under the cost row shows the weighted unit-price
+  multiple implied by the two band shares (for example `×2.00`). It equals the table's peak
+  multiple when pricing and banding both line up; a different number means the two mixes
+  differ (cache hit rate, output share) or the table needs an update. It appears only when
+  both bands carry tokens and money, and is marked `conversation only` while the header total
+  counts subagents, because the shares are the conversation's own.
 - **Session metrics**: turns, steps, tokens per turn, model time, tool time, first-token
   latency, decode speed.
 - **Request table** (collapsed by default, click to expand): the root agent's requests and

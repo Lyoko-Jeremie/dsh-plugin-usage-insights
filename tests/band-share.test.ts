@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { BandModelView, UsageBandsView } from '../src/client/contract.ts'
-import { bandShareOf, peakRequestShare, peakTokenShare } from '../src/lib/band-share.ts'
+import type { BandModelView, BandShareView, UsageBandsView } from '../src/client/contract.ts'
+import { bandShareOf, impliedBandPriceRatio, peakRequestShare, peakTokenShare } from '../src/lib/band-share.ts'
 import { aggregateHistory } from '../src/lib/aggregate.ts'
 
 /** One model's counters inside one band. */
@@ -44,6 +44,39 @@ describe('bandShareOf', () => {
   it('counts output tokens in the token share', () => {
     const share = bandShareOf(bands([entry(1, 0, 100)], [entry(1, 0, 300)]))
     expect(peakTokenShare(share)).toBe(0.25)
+  })
+})
+
+describe('impliedBandPriceRatio', () => {
+  /** One conversation with three off-peak tokens per peak token. */
+  const skewed: BandShareView = {
+    peakTokens: 1000,
+    offPeakTokens: 3000,
+    peakRequests: 1,
+    offPeakRequests: 3,
+  }
+
+  it('recovers the peak multiple when both bands price at it', () => {
+    // Peak 2000 micro over 1000 tokens; off-peak 1000 micro over 3000 tokens.
+    expect(impliedBandPriceRatio(skewed, { peakMicros: 2_000_000, offPeakMicros: 3_000_000 }))
+      .toBeCloseTo(2)
+  })
+
+  it('reports the weighted multiple rather than a table constant', () => {
+    const even: BandShareView = { peakTokens: 1000, offPeakTokens: 1000, peakRequests: 1, offPeakRequests: 1 }
+    expect(impliedBandPriceRatio(even, { peakMicros: 3_000_000, offPeakMicros: 1_000_000 }))
+      .toBeCloseTo(3)
+  })
+
+  it('returns null when a split is missing or a side carries no tokens or money', () => {
+    expect(impliedBandPriceRatio(null, { peakMicros: 1, offPeakMicros: 1 })).toBeNull()
+    expect(impliedBandPriceRatio(skewed, null)).toBeNull()
+    expect(impliedBandPriceRatio({ ...skewed, offPeakTokens: 0 }, { peakMicros: 1, offPeakMicros: 1 }))
+      .toBeNull()
+    expect(impliedBandPriceRatio({ ...skewed, peakTokens: 0 }, { peakMicros: 1, offPeakMicros: 1 }))
+      .toBeNull()
+    expect(impliedBandPriceRatio(skewed, { peakMicros: 0, offPeakMicros: 1 })).toBeNull()
+    expect(impliedBandPriceRatio(skewed, { peakMicros: 1, offPeakMicros: 0 })).toBeNull()
   })
 })
 

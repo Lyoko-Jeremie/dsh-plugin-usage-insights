@@ -118,6 +118,9 @@ var en = {
   "label.bandShare.cost": "Peak/off (cost)",
   "label.bandShare.tokens": "Peak / off-peak (tokens)",
   "label.bandShare.requests": "Peak / off-peak (requests)",
+  "band.ratio": "Peak/off price",
+  "band.ratio.hint": "Each band amount divided by its own tokens; it equals the table multiple when the prices line up",
+  "band.ratio.scope": "conversation only",
   "band.other": "Unattributed",
   "band.byTokens": "By tokens",
   "band.byRequests": "By requests",
@@ -253,6 +256,9 @@ var zh = {
   "label.bandShare.cost": "\u5CF0\u8C37\uFF08\u91D1\u989D\uFF09",
   "label.bandShare.tokens": "\u5CF0\u8C37\u6BD4\u4F8B\uFF08\u6309 Token\uFF09",
   "label.bandShare.requests": "\u5CF0\u8C37\u6BD4\u4F8B\uFF08\u6309\u8BF7\u6C42\uFF09",
+  "band.ratio": "\u5CF0\u8C37\u5355\u4EF7\u6BD4",
+  "band.ratio.hint": "\u5404\u6863\u91D1\u989D\u9664\u4EE5\u8BE5\u6863 Token \u5F97\u5230\u7684\u52A0\u6743\u5355\u4EF7\u6BD4\uFF1B\u4E0E\u4EF7\u8868\u4E00\u81F4\u65F6\u5E94\u7B49\u4E8E\u5CF0\u8C37\u4EF7\u683C\u500D\u6570",
+  "band.ratio.scope": "\u4EC5\u672C\u4F1A\u8BDD",
   "band.other": "\u672A\u5206\u7C7B",
   "band.byTokens": "\u6309 Token",
   "band.byRequests": "\u6309\u8BF7\u6C42",
@@ -426,6 +432,15 @@ function peakAmountShare(share) {
   if (share === null) return null;
   const total = share.peakMicros + share.offPeakMicros;
   return total > 0 ? share.peakMicros / total : null;
+}
+function impliedBandPriceRatio(tokenShare, costShare) {
+  if (tokenShare === null || costShare === null) return null;
+  const { peakTokens, offPeakTokens } = tokenShare;
+  const { peakMicros, offPeakMicros } = costShare;
+  if (peakTokens <= 0 || offPeakTokens <= 0) return null;
+  if (peakMicros <= 0 || offPeakMicros <= 0) return null;
+  const ratio = peakMicros / peakTokens / (offPeakMicros / offPeakTokens);
+  return Number.isFinite(ratio) && ratio > 0 ? ratio : null;
 }
 
 // src/lib/pricing.ts
@@ -1554,6 +1569,22 @@ var css2 = `
 .dsu-cost-note {
   font-size: 11px;
   color: var(--dsw-alias-label-tertiary);
+}
+
+.dsu-head-sub {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 5px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dsu-head-sub b {
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary);
 }
 
 .dsu-running {
@@ -2824,6 +2855,7 @@ function SessionPanel(props) {
   const costPeakShare = peakAmountShare(view.costBandShare);
   const costRingLabel = costPeakShare === null ? "\u2014" : formatPercent(costPeakShare);
   const currency = view.cost?.currency ?? "";
+  const bandPriceRatio = view.bandShare !== null && view.costBandShare !== null ? impliedBandPriceRatio(view.bandShare, view.costBandShare) : null;
   return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsu-root", children: [
     /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(StyleTag, {}),
     /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("header", { className: "dsu-head", children: [
@@ -2841,6 +2873,18 @@ function SessionPanel(props) {
               basis: tree.costBasis,
               childCount: tree.childCount,
               t
+            }
+          ),
+          bandPriceRatio !== null && view.bandShare !== null && view.costBandShare !== null && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+            "div",
+            {
+              className: "dsu-head-sub",
+              title: `${bandShareText(view.bandShare, t, "tokens")} \xB7 ${costBandShareText(view.costBandShare, currency, t)} \xB7 ${t("band.ratio.hint")}`,
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { children: t("band.ratio") }),
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("b", { children: `\xD7${bandPriceRatio.toFixed(2)}` }),
+                tree.childCount > 0 && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { children: t("band.ratio.scope") })
+              ]
             }
           )
         ] }),

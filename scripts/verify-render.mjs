@@ -80,6 +80,18 @@ const populated = {
   },
 }
 
+/** Both bands carry requests, so the header can derive its unit-price multiple. */
+const bothBands = {
+  ...populated,
+  usageBands: {
+    days: [],
+    total: {
+      peak: [{ ...stepRow, requests: 1, uncachedInputTokens: 1000 }],
+      offPeak: [{ ...stepRow, requests: 1, uncachedInputTokens: 3000 }],
+    },
+  },
+}
+
 const list = {
   ids: ['s1', 's2', 's3'],
   byId: {
@@ -134,6 +146,8 @@ const cases = [
       '[steps.showAll]', '[context.breakdown.tools]', '[context.breakdown.messages]']],
   ['session: subagent', session, propsFor(populated, list, 's2'),
     ['[agent.subagent]', '[agent.parent]']],
+  ['session: both bands', session, propsFor(bothBands, list),
+    ['[band.ratio]', '×2.00', '[band.ratio.scope]', 'dsu-head-sub', '[label.bandShare.cost]']],
   ['session: empty', session, propsFor({}, list), ['[empty.noUsage]', '[agent.root]']],
   ['history: populated', history, propsFor({}, list),
     ['1M', '[history.range.24h]', '[history.range.today]', '[history.range.7d]',
