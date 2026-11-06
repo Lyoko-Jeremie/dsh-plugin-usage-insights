@@ -55,6 +55,12 @@ var en = {
   "cacheHit.turn": "Current turn",
   "cacheHit.step": "Latest request",
   "section.context": "Context window",
+  "section.trend": "Step trend",
+  "trend.context": "Context usage",
+  "trend.cache": "Cache hit",
+  "trend.cacheScale": "log",
+  "trend.count": "{n} steps",
+  "trend.empty": "Not enough requests to draw a trend",
   "section.metrics": "Session metrics",
   "section.history": "Usage history",
   "section.steps": "Requests",
@@ -193,6 +199,12 @@ var zh = {
   "cacheHit.turn": "\u5F53\u524D\u56DE\u5408",
   "cacheHit.step": "\u6700\u8FD1\u4E00\u6B65",
   "section.context": "\u4E0A\u4E0B\u6587\u7A97\u53E3",
+  "section.trend": "\u9010\u6B65\u8D70\u52BF",
+  "trend.context": "\u4E0A\u4E0B\u6587\u5360\u7528",
+  "trend.cache": "\u7F13\u5B58\u547D\u4E2D",
+  "trend.cacheScale": "\u5BF9\u6570",
+  "trend.count": "{n} \u6B65",
+  "trend.empty": "\u8BF7\u6C42\u592A\u5C11\uFF0C\u6682\u65F6\u65E0\u6CD5\u7ED8\u5236\u8D70\u52BF",
   "section.metrics": "\u4F1A\u8BDD\u6307\u6807",
   "section.history": "\u7528\u91CF\u6C47\u603B",
   "section.steps": "\u5206\u6B65\u660E\u7EC6",
@@ -1633,6 +1645,35 @@ var css2 = `
   font-variant-numeric: tabular-nums;
 }
 
+.dsu-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+
+.dsu-section-toggle:hover .dsu-section-title {
+  color: var(--dsw-alias-label-primary);
+}
+
+.dsu-section-toggle:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.dsu-section-toggle[aria-expanded=true] .dsu-chevron {
+  transform: rotate(90deg);
+}
+
 .dsu-section-body {
   display: flex;
   flex-direction: column;
@@ -2308,6 +2349,222 @@ var css2 = `
   color: var(--dsw-alias-brand-primary);
   background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent);
 }
+
+.dsu-trend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dsu-trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.dsu-trend-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dsu-trend-key b {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dsu-trend-swatch {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--dsw-alias-brand-primary);
+}
+
+.dsu-trend-key[data-series=cache] .dsu-trend-swatch {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-key[data-series=threshold] .dsu-trend-swatch {
+  height: 0;
+  border-top: 2px dashed var(--dsw-alias-state-warn-label);
+  border-radius: 0;
+  background: none;
+}
+
+.dsu-trend-chart {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.dsu-trend-chart svg * {
+  pointer-events: none;
+}
+
+.dsu-trend-chart svg {
+  display: block;
+}
+
+.dsu-trend-grid {
+  stroke: var(--dsw-alias-border-l2);
+  stroke-width: 1;
+}
+
+.dsu-trend-threshold {
+  stroke: var(--dsw-alias-state-warn-label);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.dsu-trend-line {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dsu-trend-line[data-series=context] {
+  stroke: var(--dsw-alias-brand-primary);
+}
+
+.dsu-trend-line[data-series=cache] {
+  stroke: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-dot[data-series=context] {
+  fill: var(--dsw-alias-brand-primary);
+}
+
+.dsu-trend-dot[data-series=cache] {
+  fill: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-hit {
+  fill: transparent;
+}
+
+.dsu-trend-chart svg .dsu-trend-hit {
+  pointer-events: all;
+}
+
+.dsu-trend-hit:hover {
+  fill: var(--dsw-alias-bg-layer-2);
+}
+
+.dsu-trend-crosshair {
+  stroke: var(--dsw-alias-label-tertiary);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.6;
+}
+
+.dsu-trend-cursor {
+  stroke: var(--dsw-alias-bg-layer-1);
+  stroke-width: 1.2;
+}
+
+.dsu-trend-cursor[data-series=context] {
+  fill: var(--dsw-alias-brand-primary);
+}
+
+.dsu-trend-cursor[data-series=cache] {
+  fill: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-tip {
+  position: absolute;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 150px;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+  font-size: 10px;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.dsu-trend-tip-head {
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dsu-trend-tip-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.dsu-trend-tip-row .dsu-trend-swatch {
+  flex: 0 0 auto;
+}
+
+.dsu-trend-tip-row[data-series=context] .dsu-trend-swatch {
+  background: var(--dsw-alias-brand-primary);
+}
+
+.dsu-trend-tip-row[data-series=cache] .dsu-trend-swatch {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-tip-row b {
+  margin-left: auto;
+  color: var(--dsw-alias-label-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dsu-trend-tip-sub {
+  padding-left: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dsu-trend-scale {
+  padding: 0 3px;
+  border-radius: 3px;
+  font-size: 9px;
+  line-height: 13px;
+  color: var(--dsw-alias-label-tertiary);
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.dsu-trend-tick {
+  font-size: 9px;
+  fill: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dsu-trend-tick[data-axis=cache] {
+  fill: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
 `;
 
 // src/client/components.tsx
@@ -2316,12 +2573,26 @@ function StyleTag() {
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("style", { children: css2 });
 }
 function Section(props) {
+  const [open, setOpen] = (0, import_react.useState)(true);
+  const collapsible = props.collapsible === true;
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "dsu-section", children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsu-section-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsu-section-title", children: props.title }),
+      collapsible ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+        "button",
+        {
+          type: "button",
+          className: "dsu-section-toggle",
+          "aria-expanded": open,
+          onClick: () => setOpen((value) => !value),
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsu-chevron", "aria-hidden": "true" }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsu-section-title", children: props.title })
+          ]
+        }
+      ) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsu-section-title", children: props.title }),
       props.aside !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsu-section-aside", children: props.aside })
     ] }),
-    props.children !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsu-section-body", children: props.children })
+    props.children !== void 0 && (!collapsible || open) && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsu-section-body", children: props.children })
   ] });
 }
 function Stat(props) {
@@ -2635,6 +2906,271 @@ function ChildAgentsTable(props) {
 function InlineMessage(props) {
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsu-inline", "data-tone": props.tone ?? "muted", role: "note", children: props.children });
 }
+var TREND_HEIGHT = 181;
+var TREND_PAD_X = 2;
+var TREND_PAD_Y = 8;
+var TREND_AXIS_LEFT = 26;
+var TREND_AXIS_RIGHT = 26;
+var DEFAULT_TREND_WIDTH = 300;
+function useTrendWidth() {
+  const chartRef = (0, import_react.useRef)(null);
+  const [width, setWidth] = (0, import_react.useState)(DEFAULT_TREND_WIDTH);
+  (0, import_react.useEffect)(() => {
+    const chart = chartRef.current;
+    if (chart === null || typeof ResizeObserver === "undefined") return void 0;
+    const update = () => {
+      if (chart.clientWidth > 0) setWidth(chart.clientWidth);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(chart);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+  return { width, chartRef };
+}
+function trendPath(points, pick, xAt, yAt) {
+  let path = "";
+  let open = false;
+  points.forEach((point, index) => {
+    const value = pick(point);
+    if (value === null) {
+      open = false;
+      return;
+    }
+    path += `${open ? "L" : "M"}${xAt(index).toFixed(2)} ${yAt(value).toFixed(2)}`;
+    open = true;
+  });
+  return path;
+}
+function trendHitBounds(index, count2, xAt, plotLeft, plotRight) {
+  if (count2 <= 1) return { x: plotLeft, width: Math.max(0.5, plotRight - plotLeft) };
+  const before = index === 0 ? plotLeft : (xAt(index - 1) + xAt(index)) / 2;
+  const after = index === count2 - 1 ? plotRight : (xAt(index) + xAt(index + 1)) / 2;
+  return { x: before, width: Math.max(0.5, after - before) };
+}
+function latestRatio(points, pick) {
+  for (let index = points.length - 1; index >= 0; index -= 1) {
+    const point = points[index];
+    if (point === void 0) continue;
+    const value = pick(point);
+    if (value !== null) return value;
+  }
+  return null;
+}
+function StepTrendChart(props) {
+  const t = props.t;
+  const points = props.points;
+  const { width, chartRef } = useTrendWidth();
+  const [hover, setHover] = (0, import_react.useState)(null);
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (first === void 0 || last === void 0) {
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(InlineMessage, { children: t("trend.empty") });
+  }
+  const showAxes = width >= 200;
+  const plotLeft = TREND_PAD_X + (showAxes ? TREND_AXIS_LEFT : 0);
+  const plotRight = width - TREND_PAD_X - (showAxes ? TREND_AXIS_RIGHT : 0);
+  const plotWidth = Math.max(1, plotRight - plotLeft);
+  const plotHeight = TREND_HEIGHT - TREND_PAD_Y * 2;
+  const xAt = (index) => points.length <= 1 ? plotLeft + plotWidth / 2 : plotLeft + index / (points.length - 1) * plotWidth;
+  const contextYAt = (ratio) => TREND_PAD_Y + (1 - ratio) * plotHeight;
+  const cacheYAt = (ratio) => TREND_PAD_Y + (1 - hitBarRatio(ratio)) * plotHeight;
+  const contextPath = trendPath(points, (point) => point.contextRatio, xAt, contextYAt);
+  const cachePath = trendPath(points, (point) => point.cacheRatio, xAt, cacheYAt);
+  const latestContext = latestRatio(points, (point) => point.contextRatio);
+  const latestCache = latestRatio(points, (point) => point.cacheRatio);
+  const threshold = props.threshold === null || props.threshold === void 0 ? null : Math.min(1, Math.max(0, props.threshold));
+  const showDots = points.length <= 60;
+  const hovered = hover === null ? void 0 : points[hover];
+  const hoverX = hover === null ? 0 : xAt(hover);
+  const tipOnLeft = hover !== null && hover > (points.length - 1) / 2;
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsu-trend", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsu-trend-legend", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "dsu-trend-key", "data-series": "context", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),
+        t("trend.context"),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: latestContext === null ? "\u2014" : formatPercent(latestContext) })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "dsu-trend-key", "data-series": "cache", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),
+        t("trend.cache"),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: latestCache === null ? "\u2014" : formatPercentFixed(latestCache, 3) }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsu-trend-scale", children: t("trend.cacheScale") })
+      ] }),
+      threshold !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "dsu-trend-key", "data-series": "threshold", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),
+        t("context.compaction"),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: formatPercent(threshold) })
+      ] })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      "div",
+      {
+        className: "dsu-trend-chart",
+        ref: chartRef,
+        role: "img",
+        "aria-label": `${t("trend.context")} / ${t("trend.cache")}`,
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+            "svg",
+            {
+              width,
+              height: TREND_HEIGHT,
+              viewBox: `0 0 ${width} ${TREND_HEIGHT}`,
+              "aria-hidden": "true",
+              onPointerLeave: () => setHover(null),
+              children: [
+                points.map((point, index) => {
+                  const bounds = trendHitBounds(index, points.length, xAt, plotLeft, plotRight);
+                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                    "rect",
+                    {
+                      className: "dsu-trend-hit",
+                      x: bounds.x,
+                      y: 0,
+                      width: bounds.width,
+                      height: TREND_HEIGHT,
+                      onPointerMove: () => setHover(index),
+                      onPointerLeave: () => setHover(null)
+                    },
+                    `hit-${point.at}-${point.turn}-${point.step}`
+                  );
+                }),
+                [0, 0.5, 1].map((ratio) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "line",
+                  {
+                    className: "dsu-trend-grid",
+                    x1: plotLeft,
+                    x2: plotRight,
+                    y1: contextYAt(ratio),
+                    y2: contextYAt(ratio)
+                  },
+                  ratio
+                )),
+                threshold !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "line",
+                  {
+                    className: "dsu-trend-threshold",
+                    x1: plotLeft,
+                    x2: plotRight,
+                    y1: contextYAt(threshold),
+                    y2: contextYAt(threshold)
+                  }
+                ),
+                showAxes && [0, 0.5, 1].map((ratio) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "text",
+                  {
+                    className: "dsu-trend-tick",
+                    x: TREND_PAD_X,
+                    y: contextYAt(ratio) + 3,
+                    textAnchor: "start",
+                    children: formatPercent(ratio)
+                  },
+                  `context-${ratio}`
+                )),
+                showAxes && [0, 0.5, 1].map((ratio) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "text",
+                  {
+                    className: "dsu-trend-tick",
+                    "data-axis": "cache",
+                    x: width - TREND_PAD_X,
+                    y: contextYAt(ratio) + 3,
+                    textAnchor: "end",
+                    children: hitTickLabel(hitRatioAtWidth(ratio))
+                  },
+                  `cache-${ratio}`
+                )),
+                contextPath !== "" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { className: "dsu-trend-line", "data-series": "context", d: contextPath }),
+                cachePath !== "" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { className: "dsu-trend-line", "data-series": "cache", d: cachePath }),
+                showDots && points.map((point, index) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("g", { children: [
+                  point.contextRatio !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                    "circle",
+                    {
+                      className: "dsu-trend-dot",
+                      "data-series": "context",
+                      cx: xAt(index),
+                      cy: contextYAt(point.contextRatio),
+                      r: 1.7
+                    }
+                  ),
+                  point.cacheRatio !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                    "circle",
+                    {
+                      className: "dsu-trend-dot",
+                      "data-series": "cache",
+                      cx: xAt(index),
+                      cy: cacheYAt(point.cacheRatio),
+                      r: 1.7
+                    }
+                  )
+                ] }, `dot-${point.at}-${point.turn}-${point.step}`)),
+                hovered !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "line",
+                  {
+                    className: "dsu-trend-crosshair",
+                    x1: hoverX,
+                    x2: hoverX,
+                    y1: TREND_PAD_Y,
+                    y2: TREND_PAD_Y + plotHeight
+                  }
+                ),
+                hovered !== void 0 && hovered.contextRatio !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "circle",
+                  {
+                    className: "dsu-trend-cursor",
+                    "data-series": "context",
+                    cx: hoverX,
+                    cy: contextYAt(hovered.contextRatio),
+                    r: 3.2
+                  }
+                ),
+                hovered !== void 0 && hovered.cacheRatio !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "circle",
+                  {
+                    className: "dsu-trend-cursor",
+                    "data-series": "cache",
+                    cx: hoverX,
+                    cy: cacheYAt(hovered.cacheRatio),
+                    r: 3.2
+                  }
+                )
+              ]
+            }
+          ),
+          hovered !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+            "div",
+            {
+              className: "dsu-trend-tip",
+              style: { left: hoverX, transform: tipOnLeft ? "translateX(calc(-100% - 6px))" : "translateX(6px)" },
+              role: "presentation",
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsu-trend-tip-head", children: `${formatBeijingTime(hovered.at)} \xB7 ${hovered.turn}.${hovered.step}` }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsu-trend-tip-row", "data-series": "context", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t("trend.context") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: hovered.contextRatio === null ? "\u2014" : formatPercent(hovered.contextRatio) })
+                ] }),
+                hovered.contextRatio !== null && props.windowTokens !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsu-trend-tip-sub", children: `${formatTokenCount(hovered.promptTokens)} / ${formatTokenCount(props.windowTokens)}` }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsu-trend-tip-row", "data-series": "cache", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t("trend.cache") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: hovered.cacheRatio === null ? "\u2014" : formatPercentFixed(hovered.cacheRatio, 3) })
+                ] })
+              ]
+            }
+          )
+        ]
+      }
+    ),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsu-trend-axis", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: formatBeijingTime(first.at) }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: formatBeijingTime(last.at) })
+    ] }),
+    props.windowTokens === null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsu-note", children: t("context.capacityUnknown") })
+  ] });
+}
 
 // src/client/HistoryPanel.tsx
 var import_jsx_runtime3 = require("react/jsx-runtime");
@@ -2786,6 +3322,30 @@ function HistoryPanel(props) {
   ] });
 }
 
+// src/lib/trend.ts
+function ratioOrNull(value) {
+  if (!Number.isFinite(value)) return null;
+  return Math.min(1, Math.max(0, value));
+}
+function tokenOrZero(value) {
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+function stepTrendPoints(steps, windowTokens) {
+  const capacity = windowTokens !== null && Number.isFinite(windowTokens) && windowTokens > 0 ? windowTokens : null;
+  return [...steps].sort((left, right) => left.at - right.at || left.turn - right.turn || left.step - right.step).map((step) => {
+    const promptTokens = tokenOrZero(step.uncachedInputTokens) + tokenOrZero(step.cacheReadTokens) + tokenOrZero(step.cacheWriteTokens);
+    return {
+      at: step.at,
+      turn: step.turn,
+      step: step.step,
+      agentIndex: step.agentIndex ?? null,
+      promptTokens,
+      contextRatio: capacity === null || promptTokens <= 0 ? null : ratioOrNull(promptTokens / capacity),
+      cacheRatio: promptTokens <= 0 ? null : ratioOrNull(tokenOrZero(step.cacheReadTokens) / promptTokens)
+    };
+  });
+}
+
 // src/lib/tree.ts
 function treeTotals(input) {
   const childTokens = input.children?.totalTokens ?? 0;
@@ -2835,6 +3395,7 @@ function SessionPanel(props) {
   const hitRuler = useHitDivisions();
   const context = view.context;
   const hasContext = context.usedTokens !== null || context.windowTokens !== null || context.ratio !== null;
+  const trendSteps = props.contextSteps ?? view.stepActivity?.steps ?? [];
   const breakdown = view.breakdown;
   const breakdownTotal = breakdown === null ? 0 : breakdown.systemTokens + breakdown.toolsTokens + breakdown.messageTokens;
   const composition = breakdown === null ? [] : [
@@ -3037,6 +3598,15 @@ function SessionPanel(props) {
       breakdown !== null && breakdownTotal > 0 && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CompositionBar, { segments: composition }),
       breakdown !== null && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "dsu-note", children: t("context.breakdown.hint") })
     ] }) }),
+    view.hasUsage && trendSteps.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Section, { title: t("section.trend"), aside: t("trend.count", { n: trendSteps.length }), collapsible: true, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+      StepTrendChart,
+      {
+        points: stepTrendPoints(trendSteps, context.windowTokens),
+        windowTokens: context.windowTokens,
+        threshold: view.compactionThreshold,
+        t
+      }
+    ) }),
     view.hasUsage && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Section, { title: t("section.metrics"), children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsu-rows", children: [
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Row, { label: t("label.turns"), value: formatCount(view.turns) }),
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Row, { label: t("label.steps"), value: formatCount(view.steps) }),
@@ -3342,7 +3912,8 @@ function UsagePanelBody(props) {
       showAllSteps,
       onToggleAllSteps: () => {
         setShowAllSteps((value) => !value);
-      }
+      },
+      contextSteps: view.stepActivity?.steps ?? []
     }
   );
 }

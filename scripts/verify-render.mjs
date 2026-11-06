@@ -54,8 +54,17 @@ function propsFor(projections, list, sessionId = 's1') {
   }
 }
 
+/** One day in milliseconds. */
+const DAY_MS = 86_400_000
+/** Fixture anchor: every dated row stays inside the history panel's 7-day default. */
+const NOW = Date.now()
+const STEP_AT = NOW - 2 * DAY_MS
+
+/** Beijing calendar day of an instant, the format the daily rollups store. */
+const beijingDay = at => new Date(at + 8 * 3_600_000).toISOString().slice(0, 10)
+
 const stepRow = {
-  at: Date.UTC(2026, 9, 21, 2, 0), turn: 1, step: 0, provider: 'deepseek', model: 'deepseek-flash',
+  at: STEP_AT, turn: 1, step: 0, provider: 'deepseek', model: 'deepseek-flash',
   band: 'peak', uncachedInputTokens: 1_000_000, cacheReadTokens: 0, cacheWriteTokens: 0,
   outputTokens: 0, reasoningTokens: 0,
 }
@@ -64,7 +73,7 @@ const populated = {
   tokenUsage: { uncachedInputTokens: 48210, outputTokens: 9077, cacheReadTokens: 96000, cacheWriteTokens: 1200 },
   usageSteps: { steps: [stepRow], totalSteps: 3, omittedSteps: 2 },
   usageBands: {
-    days: [{ day: '2026-10-21', peak: [{ ...stepRow, requests: 1 }], offPeak: [] }],
+    days: [{ day: beijingDay(STEP_AT), peak: [{ ...stepRow, requests: 1 }], offPeak: [] }],
     total: { peak: [{ ...stepRow, requests: 1 }], offPeak: [] },
   },
   contextPressure: { pressureTokens: 43000, projectedTokens: 43600, contextWindow: 128000 },
@@ -115,7 +124,7 @@ const list = {
       projectionValues: {
         tokenUsage: { uncachedInputTokens: 1000, outputTokens: 500, cacheReadTokens: 4000, cacheWriteTokens: 0 },
         usageSteps: {
-          steps: [{ ...stepRow, at: Date.UTC(2026, 9, 21, 3, 0), turn: 2, step: 0 }],
+          steps: [{ ...stepRow, at: NOW - DAY_MS, turn: 2, step: 0 }],
           totalSteps: 1,
           omittedSteps: 0,
         },
@@ -141,6 +150,7 @@ const cases = [
       '[label.bandShare.cost]', 'dsu-ring--band',
       'dsu-compose', 'dsu-compose--progress', 'dsu-progress', 'dsu-progress-marker', 'dsu-ctx-threshold',
       '[context.compaction]', '[context.breakdown.system]',
+      '[section.trend]', '[trend.context]', '[trend.cache]', 'dsu-trend',
       '[section.cacheHit]', '[cacheHit.total]', '[cacheHit.turn]', '[cacheHit.step]', 'dsu-hit', 'dsu-hit-fill',
       'dsu-hit-tick', 'dsu-hit-grid',
       '[steps.showAll]', '[context.breakdown.tools]', '[context.breakdown.messages]']],

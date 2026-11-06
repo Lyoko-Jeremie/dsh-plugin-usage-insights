@@ -18,10 +18,11 @@ import {
   formatTokensPerSecond,
 } from '../lib/format'
 import { impliedBandPriceRatio, peakAmountShare, peakTokenShare } from '../lib/band-share.ts'
+import { stepTrendPoints } from '../lib/trend.ts'
 import { treeTotals } from '../lib/tree.ts'
 import {
   bandShareText, ChildAgentsTable, CompositionBar, CompositionProgress, costBandShareText, HitBar, HitRuler,
-  InlineMessage, ProgressBar, Ring, Row, Section, Stat, StepTable, StyleTag, useHitDivisions,
+  InlineMessage, ProgressBar, Ring, Row, Section, Stat, StepTable, StepTrendChart, StyleTag, useHitDivisions,
 } from './components'
 import type { CompositionSegment } from './components'
 
@@ -79,6 +80,9 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
   const hitRuler = useHitDivisions()
   const context = view.context
   const hasContext = context.usedTokens !== null || context.windowTokens !== null || context.ratio !== null
+  // The trend charts the conversation's own requests; the merged ledger would
+  // mix requests that ran against different context windows.
+  const trendSteps = props.contextSteps ?? view.stepActivity?.steps ?? []
   const breakdown = view.breakdown
   const breakdownTotal =
     breakdown === null ? 0 : breakdown.systemTokens + breakdown.toolsTokens + breakdown.messageTokens
@@ -319,6 +323,16 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
               {breakdown !== null && <div className="dsu-note">{t('context.breakdown.hint')}</div>}
             </div>
           )}
+        </Section>
+      )}
+      {view.hasUsage && trendSteps.length > 0 && (
+        <Section title={t('section.trend')} aside={t('trend.count', { n: trendSteps.length })} collapsible>
+          <StepTrendChart
+            points={stepTrendPoints(trendSteps, context.windowTokens)}
+            windowTokens={context.windowTokens}
+            threshold={view.compactionThreshold}
+            t={t}
+          />
         </Section>
       )}
       {view.hasUsage && (

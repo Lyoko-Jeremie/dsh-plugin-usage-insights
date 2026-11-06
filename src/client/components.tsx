@@ -10,7 +10,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { JSX, ReactNode, RefObject } from 'react'
 import type { BandShareView, ChildAgentView, CostBandShare, DayTotal, StepDetailView, Translate } from './contract'
 import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
-import { divisionsForWidth, hitBarRatio, hitLevel, hitTicks, hitTickLabel } from '../lib/hit-scale.ts'
+import { divisionsForWidth, hitBarRatio, hitLevel, hitRatioAtWidth, hitTicks, hitTickLabel } from '../lib/hit-scale.ts'
+import type { StepTrendPoint } from '../lib/trend.ts'
 import {
   currencySymbol, formatAmountFixed, formatBeijingTime, formatCount, formatMoney, formatMoneyRange,
   formatPercent, formatPercentFixed, formatTokenCount, formatTokens,
@@ -32,17 +33,39 @@ export function StyleTag(): JSX.Element {
 /**
  * Titled group of related figures.
  *
- * @param props - section title, optional right-aligned aside and body content.
+ * @param props - section title, optional right-aligned aside, body content and
+ * whether the title doubles as a collapse toggle.
  * @returns the rendered section.
  */
-export function Section(props: { title: string; aside?: ReactNode; children?: ReactNode }): JSX.Element {
+export function Section(props: {
+  title: string
+  aside?: ReactNode
+  children?: ReactNode
+  collapsible?: boolean
+}): JSX.Element {
+  const [open, setOpen] = useState(true)
+  const collapsible = props.collapsible === true
   return (
     <section className="dsu-section">
       <div className="dsu-section-head">
-        <div className="dsu-section-title">{props.title}</div>
+        {collapsible ? (
+          <button
+            type="button"
+            className="dsu-section-toggle"
+            aria-expanded={open}
+            onClick={() => setOpen(value => !value)}
+          >
+            <span className="dsu-chevron" aria-hidden="true" />
+            <span className="dsu-section-title">{props.title}</span>
+          </button>
+        ) : (
+          <div className="dsu-section-title">{props.title}</div>
+        )}
         {props.aside !== undefined && <div className="dsu-section-aside">{props.aside}</div>}
       </div>
-      {props.children !== undefined && <div className="dsu-section-body">{props.children}</div>}
+      {props.children !== undefined && (!collapsible || open) && (
+        <div className="dsu-section-body">{props.children}</div>
+      )}
     </section>
   )
 }
@@ -655,6 +678,356 @@ export function InlineMessage(props: { children: ReactNode; tone?: 'muted' | 'wa
   return (
     <div className="dsu-inline" data-tone={props.tone ?? 'muted'} role="note">
       {props.children}
+    </div>
+  )
+}
+
+/** Height of the trend plot, in CSS pixels. */
+const TREND_HEIGHT = 181
+/** Horizontal breathing room inside the plot. */
+const TREND_PAD_X = 2
+/** Vertical breathing room inside the plot. */
+const TREND_PAD_Y = 8
+/** Width reserved for the linear context labels on the left. */
+const TREND_AXIS_LEFT = 26
+/** Width reserved for the logarithmic cache-hit labels on the right. */
+const TREND_AXIS_RIGHT = 26
+/** Plot width used until the container has been measured. */
+const DEFAULT_TREND_WIDTH = 300
+
+/**
+ * Measure the width the trend plot can use.
+ *
+ * The plot is an SVG with a viewBox in CSS pixels rather than a stretched
+ * viewBox, so the stroke keeps its thickness and each hover column stays over
+ * the request it describes.
+ *
+ * @returns the measured width and the ref to attach to the plot container.
+ */
+function useTrendWidth(): { width: number; chartRef: RefObject<HTMLDivElement | null> } {
+  const chartRef = useRef<HTMLDivElement | null>(null)
+  const [width, setWidth] = useState(DEFAULT_TREND_WIDTH)
+  useEffect(() => {
+    const chart = chartRef.current
+    if (chart === null || typeof ResizeObserver === 'undefined') return undefined
+    const update = (): void => {
+      if (chart.clientWidth > 0) setWidth(chart.clientWidth)
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(chart)
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+  return { width, chartRef }
+}
+
+/**
+ * Build one series path, breaking at samples that carry no ratio.
+ *
+ * @param points - ascending trend points.
+ * @param pick - ratio accessor of the series.
+ * @param xAt - horizontal position of a point index.
+ * @param yAt - vertical position of a ratio.
+ * @returns an SVG path, or an empty string without samples.
+ */
+function trendPath(
+  points: readonly StepTrendPoint[],
+  pick: (point: StepTrendPoint) => number | null,
+  xAt: (index: number) => number,
+  yAt: (ratio: number) => number,
+): string {
+  let path = ''
+  let open = false
+  points.forEach((point, index) => {
+    const value = pick(point)
+    if (value === null) {
+      open = false
+      return
+    }
+    path += `${open ? 'L' : 'M'}${xAt(index).toFixed(2)} ${yAt(value).toFixed(2)}`
+    open = true
+  })
+  return path
+}
+
+/**
+ * Horizontal extent of one request's hover column.
+ *
+ * Columns meet halfway between neighbouring points, so the whole plot is
+ * covered and the first and last requests reach the plot edges.
+ *
+ * @param index - point index.
+ * @param count - number of points.
+ * @param xAt - horizontal position of a point index.
+ * @param plotLeft - left edge of the plot area.
+ * @param plotRight - right edge of the plot area.
+ * @returns the column origin and width.
+ */
+function trendHitBounds(
+  index: number,
+  count: number,
+  xAt: (index: number) => number,
+  plotLeft: number,
+  plotRight: number,
+): { x: number; width: number } {
+  if (count <= 1) return { x: plotLeft, width: Math.max(0.5, plotRight - plotLeft) }
+  const before = index === 0 ? plotLeft : (xAt(index - 1) + xAt(index)) / 2
+  const after = index === count - 1 ? plotRight : (xAt(index) + xAt(index + 1)) / 2
+  return { x: before, width: Math.max(0.5, after - before) }
+}
+
+/**
+ * Latest non-null value of one series.
+ *
+ * @param points - ascending trend points.
+ * @param pick - ratio accessor of the series.
+ * @returns the newest ratio, or null when the series has no sample.
+ */
+function latestRatio(
+  points: readonly StepTrendPoint[],
+  pick: (point: StepTrendPoint) => number | null,
+): number | null {
+  for (let index = points.length - 1; index >= 0; index -= 1) {
+    const point = points[index]
+    if (point === undefined) continue
+    const value = pick(point)
+    if (value !== null) return value
+  }
+  return null
+}
+
+/**
+ * Two series over the request ledger: context occupancy and cache hit rate.
+ *
+ * The left axis is the linear context occupancy, the right axis is the same
+ * power scale as the cache-hit bars, where 90% already sits halfway up. Two
+ * axes let one plot show both facts without hiding the spread above 90%. The
+ * dashed line marks the automatic-compaction threshold on the context axis.
+ * Hovering anywhere over a request lights the whole column and shows both of
+ * its values in one tooltip, so the two series can be read against each other
+ * at the same step. The line is broken where a request billed no input instead
+ * of reading as a zero.
+ *
+ * @param props - ascending samples, the declared capacity, the compaction threshold and the translate seat.
+ * @returns the rendered trend chart.
+ */
+export function StepTrendChart(props: {
+  points: readonly StepTrendPoint[]
+  windowTokens: number | null
+  threshold: number | null
+  t: Translate
+}): JSX.Element {
+  const t = props.t
+  const points = props.points
+  const { width, chartRef } = useTrendWidth()
+  const [hover, setHover] = useState<number | null>(null)
+  const first = points[0]
+  const last = points[points.length - 1]
+  if (first === undefined || last === undefined) {
+    return <InlineMessage>{t('trend.empty')}</InlineMessage>
+  }
+  // The context axis is linear; the cache axis reuses the power scale of the
+  // cache-hit bars, so a 90% hit already sits halfway up the plot.
+  const showAxes = width >= 200
+  const plotLeft = TREND_PAD_X + (showAxes ? TREND_AXIS_LEFT : 0)
+  const plotRight = width - TREND_PAD_X - (showAxes ? TREND_AXIS_RIGHT : 0)
+  const plotWidth = Math.max(1, plotRight - plotLeft)
+  const plotHeight = TREND_HEIGHT - TREND_PAD_Y * 2
+  const xAt = (index: number): number =>
+    points.length <= 1
+      ? plotLeft + plotWidth / 2
+      : plotLeft + (index / (points.length - 1)) * plotWidth
+  const contextYAt = (ratio: number): number => TREND_PAD_Y + (1 - ratio) * plotHeight
+  const cacheYAt = (ratio: number): number => TREND_PAD_Y + (1 - hitBarRatio(ratio)) * plotHeight
+  const contextPath = trendPath(points, point => point.contextRatio, xAt, contextYAt)
+  const cachePath = trendPath(points, point => point.cacheRatio, xAt, cacheYAt)
+  const latestContext = latestRatio(points, point => point.contextRatio)
+  const latestCache = latestRatio(points, point => point.cacheRatio)
+  const threshold = props.threshold === null || props.threshold === undefined
+    ? null
+    : Math.min(1, Math.max(0, props.threshold))
+  const showDots = points.length <= 60
+  const hovered = hover === null ? undefined : points[hover]
+  const hoverX = hover === null ? 0 : xAt(hover)
+  const tipOnLeft = hover !== null && hover > (points.length - 1) / 2
+  return (
+    <div className="dsu-trend">
+      <div className="dsu-trend-legend">
+        <span className="dsu-trend-key" data-series="context">
+          <i className="dsu-trend-swatch" aria-hidden="true" />
+          {t('trend.context')}
+          <b>{latestContext === null ? '—' : formatPercent(latestContext)}</b>
+        </span>
+        <span className="dsu-trend-key" data-series="cache">
+          <i className="dsu-trend-swatch" aria-hidden="true" />
+          {t('trend.cache')}
+          <b>{latestCache === null ? '—' : formatPercentFixed(latestCache, 3)}</b>
+          <span className="dsu-trend-scale">{t('trend.cacheScale')}</span>
+        </span>
+        {threshold !== null && (
+          <span className="dsu-trend-key" data-series="threshold">
+            <i className="dsu-trend-swatch" aria-hidden="true" />
+            {t('context.compaction')}
+            <b>{formatPercent(threshold)}</b>
+          </span>
+        )}
+      </div>
+      <div
+        className="dsu-trend-chart"
+        ref={chartRef}
+        role="img"
+        aria-label={`${t('trend.context')} / ${t('trend.cache')}`}
+      >
+        <svg
+          width={width}
+          height={TREND_HEIGHT}
+          viewBox={`0 0 ${width} ${TREND_HEIGHT}`}
+          aria-hidden="true"
+          onPointerLeave={() => setHover(null)}
+        >
+          {points.map((point, index) => {
+            const bounds = trendHitBounds(index, points.length, xAt, plotLeft, plotRight)
+            return (
+              <rect
+                key={`hit-${point.at}-${point.turn}-${point.step}`}
+                className="dsu-trend-hit"
+                x={bounds.x}
+                y={0}
+                width={bounds.width}
+                height={TREND_HEIGHT}
+                onPointerMove={() => setHover(index)}
+                onPointerLeave={() => setHover(null)}
+              />
+            )
+          })}
+          {[0, 0.5, 1].map(ratio => (
+            <line
+              key={ratio}
+              className="dsu-trend-grid"
+              x1={plotLeft}
+              x2={plotRight}
+              y1={contextYAt(ratio)}
+              y2={contextYAt(ratio)}
+            />
+          ))}
+          {threshold !== null && (
+            <line
+              className="dsu-trend-threshold"
+              x1={plotLeft}
+              x2={plotRight}
+              y1={contextYAt(threshold)}
+              y2={contextYAt(threshold)}
+            />
+          )}
+          {showAxes && [0, 0.5, 1].map(ratio => (
+            <text
+              key={`context-${ratio}`}
+              className="dsu-trend-tick"
+              x={TREND_PAD_X}
+              y={contextYAt(ratio) + 3}
+              textAnchor="start"
+            >
+              {formatPercent(ratio)}
+            </text>
+          ))}
+          {showAxes && [0, 0.5, 1].map(ratio => (
+            <text
+              key={`cache-${ratio}`}
+              className="dsu-trend-tick"
+              data-axis="cache"
+              x={width - TREND_PAD_X}
+              y={contextYAt(ratio) + 3}
+              textAnchor="end"
+            >
+              {hitTickLabel(hitRatioAtWidth(ratio))}
+            </text>
+          ))}
+          {contextPath !== '' && <path className="dsu-trend-line" data-series="context" d={contextPath} />}
+          {cachePath !== '' && <path className="dsu-trend-line" data-series="cache" d={cachePath} />}
+          {showDots && points.map((point, index) => (
+            <g key={`dot-${point.at}-${point.turn}-${point.step}`}>
+              {point.contextRatio !== null && (
+                <circle
+                  className="dsu-trend-dot"
+                  data-series="context"
+                  cx={xAt(index)}
+                  cy={contextYAt(point.contextRatio)}
+                  r={1.7}
+                />
+              )}
+              {point.cacheRatio !== null && (
+                <circle
+                  className="dsu-trend-dot"
+                  data-series="cache"
+                  cx={xAt(index)}
+                  cy={cacheYAt(point.cacheRatio)}
+                  r={1.7}
+                />
+              )}
+            </g>
+          ))}
+          {hovered !== undefined && (
+            <line
+              className="dsu-trend-crosshair"
+              x1={hoverX}
+              x2={hoverX}
+              y1={TREND_PAD_Y}
+              y2={TREND_PAD_Y + plotHeight}
+            />
+          )}
+          {hovered !== undefined && hovered.contextRatio !== null && (
+            <circle
+              className="dsu-trend-cursor"
+              data-series="context"
+              cx={hoverX}
+              cy={contextYAt(hovered.contextRatio)}
+              r={3.2}
+            />
+          )}
+          {hovered !== undefined && hovered.cacheRatio !== null && (
+            <circle
+              className="dsu-trend-cursor"
+              data-series="cache"
+              cx={hoverX}
+              cy={cacheYAt(hovered.cacheRatio)}
+              r={3.2}
+            />
+          )}
+        </svg>
+        {hovered !== undefined && (
+          <div
+            className="dsu-trend-tip"
+            style={{ left: hoverX, transform: tipOnLeft ? 'translateX(calc(-100% - 6px))' : 'translateX(6px)' }}
+            role="presentation"
+          >
+            <div className="dsu-trend-tip-head">
+              {`${formatBeijingTime(hovered.at)} · ${hovered.turn}.${hovered.step}`}
+            </div>
+            <div className="dsu-trend-tip-row" data-series="context">
+              <i className="dsu-trend-swatch" aria-hidden="true" />
+              <span>{t('trend.context')}</span>
+              <b>{hovered.contextRatio === null ? '—' : formatPercent(hovered.contextRatio)}</b>
+            </div>
+            {hovered.contextRatio !== null && props.windowTokens !== null && (
+              <div className="dsu-trend-tip-sub">
+                {`${formatTokenCount(hovered.promptTokens)} / ${formatTokenCount(props.windowTokens)}`}
+              </div>
+            )}
+            <div className="dsu-trend-tip-row" data-series="cache">
+              <i className="dsu-trend-swatch" aria-hidden="true" />
+              <span>{t('trend.cache')}</span>
+              <b>{hovered.cacheRatio === null ? '—' : formatPercentFixed(hovered.cacheRatio, 3)}</b>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="dsu-trend-axis">
+        <span>{formatBeijingTime(first.at)}</span>
+        <span>{formatBeijingTime(last.at)}</span>
+      </div>
+      {props.windowTokens === null && <div className="dsu-note">{t('context.capacityUnknown')}</div>}
     </div>
   )
 }

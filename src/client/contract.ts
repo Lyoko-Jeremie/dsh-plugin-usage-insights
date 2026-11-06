@@ -445,6 +445,14 @@ export interface SessionPanelProps {
   showAllSteps: boolean
   /** Toggle the request ledger window. */
   onToggleAllSteps: () => void
+  /**
+   * The conversation's own request rows, in the ledger's stored order.
+   *
+   * The step trend charts these rather than the merged ledger: a delegated
+   * request runs against its own context window, so mixing the two would draw
+   * one line across unrelated capacities.
+   */
+  contextSteps?: readonly StepDetailView[]
 }
 
 /** Load state of the missing-projection backfill. */

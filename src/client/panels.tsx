@@ -168,6 +168,7 @@ export function UsagePanelBody(props: SessionScopedProps) {
       identity={identity}
       showAllSteps={showAllSteps}
       onToggleAllSteps={() => { setShowAllSteps(value => !value) }}
+      contextSteps={view.stepActivity?.steps ?? []}
     />
   )
 }
