@@ -26,6 +26,7 @@ export const zh = {
   'section.context': '上下文窗口',
   'section.trend': '逐步走势',
   'trend.context': '上下文占用',
+  'trend.contextScale': '对数',
   'trend.cache': '缓存命中',
   'trend.cacheScale': '对数',
   'trend.count': '{n} 步',

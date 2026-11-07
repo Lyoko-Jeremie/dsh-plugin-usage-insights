@@ -11,6 +11,7 @@ import type { JSX, ReactNode, RefObject } from 'react'
 import type { BandShareView, ChildAgentView, CostBandShare, DayTotal, StepDetailView, Translate } from './contract'
 import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
 import { divisionsForWidth, hitBarRatio, hitLevel, hitRatioAtWidth, hitTicks, hitTickLabel } from '../lib/hit-scale.ts'
+import { contextBarRatio } from '../lib/context-scale.ts'
 import type { StepTrendPoint } from '../lib/trend.ts'
 import {
   currencySymbol, formatAmountFixed, formatBeijingTime, formatCount, formatMoney, formatMoneyRange,
@@ -694,6 +695,8 @@ const TREND_AXIS_LEFT = 26
 const TREND_AXIS_RIGHT = 26
 /** Plot width used until the container has been measured. */
 const DEFAULT_TREND_WIDTH = 300
+/** Occupancy ratios that get a grid line and a left-axis label. */
+const CONTEXT_TICKS = [0, 0.25, 0.5, 0.75, 1] as const
 
 /**
  * Measure the width the trend plot can use.
@@ -801,12 +804,13 @@ function latestRatio(
 /**
  * Two series over the request ledger: context occupancy and cache hit rate.
  *
- * The left axis is the linear context occupancy, the right axis is the same
- * power scale as the cache-hit bars, where 90% already sits halfway up. Two
- * axes let one plot show both facts without hiding the spread above 90%. The
- * dashed line marks the automatic-compaction threshold on the context axis.
- * Hovering anywhere over a request lights the whole column and shows both of
- * its values in one tooltip, so the two series can be read against each other
+ * The left axis is a logarithmic context occupancy, so the 0–50% band where
+ * early requests move takes about three quarters of the plot. The right axis is
+ * the same power scale as the cache-hit bars, where 90% already sits halfway
+ * up. Two axes let one plot show both facts without hiding the spread above
+ * 90%. The dashed line marks the automatic-compaction threshold on the context
+ * axis. Hovering anywhere over a request lights the whole column and shows both
+ * of its values in one tooltip, so the two series can be read against each other
  * at the same step. The line is broken where a request billed no input instead
  * of reading as a zero.
  *
@@ -828,8 +832,9 @@ export function StepTrendChart(props: {
   if (first === undefined || last === undefined) {
     return <InlineMessage>{t('trend.empty')}</InlineMessage>
   }
-  // The context axis is linear; the cache axis reuses the power scale of the
-  // cache-hit bars, so a 90% hit already sits halfway up the plot.
+  // The context axis uses its own log scale, which spreads the low end; the
+  // cache axis reuses the power scale of the cache-hit bars, so a 90% hit
+  // already sits halfway up the plot.
   const showAxes = width >= 200
   const plotLeft = TREND_PAD_X + (showAxes ? TREND_AXIS_LEFT : 0)
   const plotRight = width - TREND_PAD_X - (showAxes ? TREND_AXIS_RIGHT : 0)
@@ -839,7 +844,7 @@ export function StepTrendChart(props: {
     points.length <= 1
       ? plotLeft + plotWidth / 2
       : plotLeft + (index / (points.length - 1)) * plotWidth
-  const contextYAt = (ratio: number): number => TREND_PAD_Y + (1 - ratio) * plotHeight
+  const contextYAt = (ratio: number): number => TREND_PAD_Y + (1 - contextBarRatio(ratio)) * plotHeight
   const cacheYAt = (ratio: number): number => TREND_PAD_Y + (1 - hitBarRatio(ratio)) * plotHeight
   const contextPath = trendPath(points, point => point.contextRatio, xAt, contextYAt)
   const cachePath = trendPath(points, point => point.cacheRatio, xAt, cacheYAt)
@@ -859,6 +864,7 @@ export function StepTrendChart(props: {
           <i className="dsu-trend-swatch" aria-hidden="true" />
           {t('trend.context')}
           <b>{latestContext === null ? '—' : formatPercent(latestContext)}</b>
+          <span className="dsu-trend-scale">{t('trend.contextScale')}</span>
         </span>
         <span className="dsu-trend-key" data-series="cache">
           <i className="dsu-trend-swatch" aria-hidden="true" />
@@ -902,7 +908,7 @@ export function StepTrendChart(props: {
               />
             )
           })}
-          {[0, 0.5, 1].map(ratio => (
+          {CONTEXT_TICKS.map(ratio => (
             <line
               key={ratio}
               className="dsu-trend-grid"
@@ -921,7 +927,7 @@ export function StepTrendChart(props: {
               y2={contextYAt(threshold)}
             />
           )}
-          {showAxes && [0, 0.5, 1].map(ratio => (
+          {showAxes && CONTEXT_TICKS.map(ratio => (
             <text
               key={`context-${ratio}`}
               className="dsu-trend-tick"
@@ -932,16 +938,16 @@ export function StepTrendChart(props: {
               {formatPercent(ratio)}
             </text>
           ))}
-          {showAxes && [0, 0.5, 1].map(ratio => (
+          {showAxes && ([0, 0.5, 1] as const).map(position => (
             <text
-              key={`cache-${ratio}`}
+              key={`cache-${position}`}
               className="dsu-trend-tick"
               data-axis="cache"
               x={width - TREND_PAD_X}
-              y={contextYAt(ratio) + 3}
+              y={TREND_PAD_Y + (1 - position) * plotHeight + 3}
               textAnchor="end"
             >
-              {hitTickLabel(hitRatioAtWidth(ratio))}
+              {hitTickLabel(hitRatioAtWidth(position))}
             </text>
           ))}
           {contextPath !== '' && <path className="dsu-trend-line" data-series="context" d={contextPath} />}

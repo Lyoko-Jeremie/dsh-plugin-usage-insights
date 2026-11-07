@@ -57,6 +57,7 @@ var en = {
   "section.context": "Context window",
   "section.trend": "Step trend",
   "trend.context": "Context usage",
+  "trend.contextScale": "log",
   "trend.cache": "Cache hit",
   "trend.cacheScale": "log",
   "trend.count": "{n} steps",
@@ -201,6 +202,7 @@ var zh = {
   "section.context": "\u4E0A\u4E0B\u6587\u7A97\u53E3",
   "section.trend": "\u9010\u6B65\u8D70\u52BF",
   "trend.context": "\u4E0A\u4E0B\u6587\u5360\u7528",
+  "trend.contextScale": "\u5BF9\u6570",
   "trend.cache": "\u7F13\u5B58\u547D\u4E2D",
   "trend.cacheScale": "\u5BF9\u6570",
   "trend.count": "{n} \u6B65",
@@ -1392,6 +1394,13 @@ function hitLevel(ratio) {
   if (ratio >= 0.9) return "good";
   if (ratio >= 0.7) return "warn";
   return "bad";
+}
+
+// src/lib/context-scale.ts
+var CONTEXT_SCALE_KNEE = 9;
+function contextBarRatio(ratio) {
+  const clamped = Math.min(1, Math.max(0, ratio));
+  return Math.log10(1 + CONTEXT_SCALE_KNEE * clamped) / Math.log10(1 + CONTEXT_SCALE_KNEE);
 }
 
 // src/client/styles.ts
@@ -2912,6 +2921,7 @@ var TREND_PAD_Y = 8;
 var TREND_AXIS_LEFT = 26;
 var TREND_AXIS_RIGHT = 26;
 var DEFAULT_TREND_WIDTH = 300;
+var CONTEXT_TICKS = [0, 0.25, 0.5, 0.75, 1];
 function useTrendWidth() {
   const chartRef = (0, import_react.useRef)(null);
   const [width, setWidth] = (0, import_react.useState)(DEFAULT_TREND_WIDTH);
@@ -2975,7 +2985,7 @@ function StepTrendChart(props) {
   const plotWidth = Math.max(1, plotRight - plotLeft);
   const plotHeight = TREND_HEIGHT - TREND_PAD_Y * 2;
   const xAt = (index) => points.length <= 1 ? plotLeft + plotWidth / 2 : plotLeft + index / (points.length - 1) * plotWidth;
-  const contextYAt = (ratio) => TREND_PAD_Y + (1 - ratio) * plotHeight;
+  const contextYAt = (ratio) => TREND_PAD_Y + (1 - contextBarRatio(ratio)) * plotHeight;
   const cacheYAt = (ratio) => TREND_PAD_Y + (1 - hitBarRatio(ratio)) * plotHeight;
   const contextPath = trendPath(points, (point) => point.contextRatio, xAt, contextYAt);
   const cachePath = trendPath(points, (point) => point.cacheRatio, xAt, cacheYAt);
@@ -2991,7 +3001,8 @@ function StepTrendChart(props) {
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "dsu-trend-key", "data-series": "context", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),
         t("trend.context"),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: latestContext === null ? "\u2014" : formatPercent(latestContext) })
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: latestContext === null ? "\u2014" : formatPercent(latestContext) }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsu-trend-scale", children: t("trend.contextScale") })
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "dsu-trend-key", "data-series": "cache", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),
@@ -3038,7 +3049,7 @@ function StepTrendChart(props) {
                     `hit-${point.at}-${point.turn}-${point.step}`
                   );
                 }),
-                [0, 0.5, 1].map((ratio) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                CONTEXT_TICKS.map((ratio) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                   "line",
                   {
                     className: "dsu-trend-grid",
@@ -3059,7 +3070,7 @@ function StepTrendChart(props) {
                     y2: contextYAt(threshold)
                   }
                 ),
-                showAxes && [0, 0.5, 1].map((ratio) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                showAxes && CONTEXT_TICKS.map((ratio) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                   "text",
                   {
                     className: "dsu-trend-tick",
@@ -3070,17 +3081,17 @@ function StepTrendChart(props) {
                   },
                   `context-${ratio}`
                 )),
-                showAxes && [0, 0.5, 1].map((ratio) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                showAxes && [0, 0.5, 1].map((position) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                   "text",
                   {
                     className: "dsu-trend-tick",
                     "data-axis": "cache",
                     x: width - TREND_PAD_X,
-                    y: contextYAt(ratio) + 3,
+                    y: TREND_PAD_Y + (1 - position) * plotHeight + 3,
                     textAnchor: "end",
-                    children: hitTickLabel(hitRatioAtWidth(ratio))
+                    children: hitTickLabel(hitRatioAtWidth(position))
                   },
-                  `cache-${ratio}`
+                  `cache-${position}`
                 )),
                 contextPath !== "" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { className: "dsu-trend-line", "data-series": "context", d: contextPath }),
                 cachePath !== "" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { className: "dsu-trend-line", "data-series": "cache", d: cachePath }),

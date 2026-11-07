@@ -24,6 +24,7 @@ export const en = {
   'section.context': 'Context window',
   'section.trend': 'Step trend',
   'trend.context': 'Context usage',
+  'trend.contextScale': 'log',
   'trend.cache': 'Cache hit',
   'trend.cacheScale': 'log',
   'trend.count': '{n} steps',
