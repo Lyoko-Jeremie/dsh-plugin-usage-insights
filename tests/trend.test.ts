@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StepDetailView } from '../src/client/contract.ts'
-import { stepTrendPoints } from '../src/lib/trend.ts'
+import { stepTrendPoints, hitSegmentParts } from '../src/lib/trend.ts'
 
 /** One request row with overridable figures. */
 function step(patch: Partial<StepDetailView> = {}): StepDetailView {
@@ -73,5 +73,40 @@ describe('stepTrendPoints', () => {
   it('keeps the agent number of every row', () => {
     const points = stepTrendPoints([step({ agentIndex: 2 })], 1_000)
     expect(points[0]?.agentIndex).toBe(2)
+  })
+})
+
+describe('hitSegmentParts', () => {
+  it('splits a green-to-red segment at both level edges', () => {
+    const parts = hitSegmentParts(0.95, 0.65)
+    expect(parts.map(part => part.level)).toEqual(['good', 'warn', 'bad'])
+    expect(parts[0]?.from).toBe(0)
+    expect(parts.at(-1)?.to).toBe(1)
+    for (let index = 1; index < parts.length; index += 1) {
+      expect(parts[index]?.from).toBeCloseTo(parts[index - 1]?.to ?? -1, 9)
+    }
+  })
+
+  it('splits only at the warn edge when green meets yellow', () => {
+    expect(hitSegmentParts(0.95, 0.85).map(part => part.level)).toEqual(['good', 'warn'])
+  })
+
+  it('splits only at the warn edge when yellow meets red', () => {
+    expect(hitSegmentParts(0.85, 0.6).map(part => part.level)).toEqual(['warn', 'bad'])
+  })
+
+  it('keeps a segment inside one level single', () => {
+    expect(hitSegmentParts(0.65, 0.55).map(part => part.level)).toEqual(['bad'])
+    expect(hitSegmentParts(0.95, 0.95)).toEqual([{ from: 0, to: 1, level: 'good' }])
+  })
+
+  it('orders the slices along the segment in either direction', () => {
+    expect(hitSegmentParts(0.6, 0.95).map(part => part.level)).toEqual(['bad', 'warn', 'good'])
+  })
+
+  it('drops zero-length slices when an endpoint sits on an edge', () => {
+    const parts = hitSegmentParts(0.9, 0.7)
+    expect(parts).toHaveLength(1)
+    expect(parts[0]?.level).toBe('warn')
   })
 })

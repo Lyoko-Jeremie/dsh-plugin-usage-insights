@@ -1052,12 +1052,28 @@ export const css = `
   stroke: var(--dsw-alias-state-success-primary);
 }
 
+.dsu-trend-line[data-series=cache][data-level=warn] {
+  stroke: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-trend-line[data-series=cache][data-level=bad] {
+  stroke: var(--dsw-alias-state-error-primary);
+}
+
 .dsu-trend-dot[data-series=context] {
   fill: var(--dsw-alias-brand-primary);
 }
 
 .dsu-trend-dot[data-series=cache] {
   fill: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-dot[data-series=cache][data-level=warn] {
+  fill: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-trend-dot[data-series=cache][data-level=bad] {
+  fill: var(--dsw-alias-state-error-primary);
 }
 
 .dsu-trend-hit {
@@ -1090,6 +1106,14 @@ export const css = `
 
 .dsu-trend-cursor[data-series=cache] {
   fill: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-cursor[data-series=cache][data-level=warn] {
+  fill: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-trend-cursor[data-series=cache][data-level=bad] {
+  fill: var(--dsw-alias-state-error-primary);
 }
 
 .dsu-trend-tip {
@@ -1134,6 +1158,22 @@ export const css = `
 
 .dsu-trend-tip-row[data-series=cache] .dsu-trend-swatch {
   background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-tip-row[data-series=cache][data-level=warn] .dsu-trend-swatch {
+  background: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-trend-tip-row[data-series=cache][data-level=bad] .dsu-trend-swatch {
+  background: var(--dsw-alias-state-error-primary);
+}
+
+.dsu-trend-tip-row[data-level=warn] b {
+  color: var(--dsw-alias-state-warn-label);
+}
+
+.dsu-trend-tip-row[data-level=bad] b {
+  color: var(--dsw-alias-state-error-primary);
 }
 
 .dsu-trend-tip-row b {

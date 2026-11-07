@@ -12,6 +12,7 @@ import type { BandShareView, ChildAgentView, CostBandShare, DayTotal, StepDetail
 import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
 import { divisionsForWidth, hitBarRatio, hitLevel, hitRatioAtWidth, hitTicks, hitTickLabel } from '../lib/hit-scale.ts'
 import { contextBarRatio } from '../lib/context-scale.ts'
+import { hitSegmentParts } from '../lib/trend.ts'
 import type { StepTrendPoint } from '../lib/trend.ts'
 import {
   currencySymbol, formatAmountFixed, formatBeijingTime, formatCount, formatMoney, formatMoneyRange,
@@ -756,6 +757,71 @@ function trendPath(
 }
 
 /**
+ * Status level of one cache-hit sample, or null without a ratio.
+ *
+ * @param ratio - cache reads over billed input, or null without usage.
+ * @returns the hit level, or null when the request billed no input.
+ */
+function trendHitLevel(ratio: number | null): 'good' | 'warn' | 'bad' | null {
+  const level = hitLevel(ratio)
+  return level === 'none' ? null : level
+}
+
+/**
+ * Split the cache series into drawable, colour-coded segments.
+ *
+ * A single path cannot change colour halfway, so each pair of adjacent
+ * samples becomes its own set of lines. Each line is split again where it
+ * crosses the 90% or 70% level, so a segment that runs from green through
+ * yellow into red shows all three colours along its own length instead of
+ * taking the worse endpoint's colour from end to end.
+ *
+ * @param points - ascending trend points.
+ * @param pick - ratio accessor of the series.
+ * @param xAt - horizontal position of a point index.
+ * @param yAt - vertical position of a ratio.
+ * @returns one line per adjacent pair and status band.
+ */
+function trendSegments(
+  points: readonly StepTrendPoint[],
+  pick: (point: StepTrendPoint) => number | null,
+  xAt: (index: number) => number,
+  yAt: (ratio: number) => number,
+): Array<{ key: string; x1: number; y1: number; x2: number; y2: number; level: 'good' | 'warn' | 'bad' }> {
+  const segments: Array<{
+    key: string
+    x1: number
+    y1: number
+    x2: number
+    y2: number
+    level: 'good' | 'warn' | 'bad'
+  }> = []
+  points.forEach((point, index) => {
+    if (index === 0) return
+    const previous = points[index - 1]
+    if (previous === undefined) return
+    const from = pick(previous)
+    const to = pick(point)
+    if (from === null || to === null) return
+    const startX = xAt(index - 1)
+    const endX = xAt(index)
+    const startY = yAt(from)
+    const endY = yAt(to)
+    hitSegmentParts(from, to).forEach((part, partIndex) => {
+      segments.push({
+        key: `segment-${index}-${partIndex}`,
+        x1: startX + (endX - startX) * part.from,
+        y1: startY + (endY - startY) * part.from,
+        x2: startX + (endX - startX) * part.to,
+        y2: startY + (endY - startY) * part.to,
+        level: part.level,
+      })
+    })
+  })
+  return segments
+}
+
+/**
  * Horizontal extent of one request's hover column.
  *
  * Columns meet halfway between neighbouring points, so the whole plot is
@@ -847,7 +913,7 @@ export function StepTrendChart(props: {
   const contextYAt = (ratio: number): number => TREND_PAD_Y + (1 - contextBarRatio(ratio)) * plotHeight
   const cacheYAt = (ratio: number): number => TREND_PAD_Y + (1 - hitBarRatio(ratio)) * plotHeight
   const contextPath = trendPath(points, point => point.contextRatio, xAt, contextYAt)
-  const cachePath = trendPath(points, point => point.cacheRatio, xAt, cacheYAt)
+  const cacheSegments = trendSegments(points, point => point.cacheRatio, xAt, cacheYAt)
   const latestContext = latestRatio(points, point => point.contextRatio)
   const latestCache = latestRatio(points, point => point.cacheRatio)
   const threshold = props.threshold === null || props.threshold === undefined
@@ -951,7 +1017,18 @@ export function StepTrendChart(props: {
             </text>
           ))}
           {contextPath !== '' && <path className="dsu-trend-line" data-series="context" d={contextPath} />}
-          {cachePath !== '' && <path className="dsu-trend-line" data-series="cache" d={cachePath} />}
+          {cacheSegments.map(segment => (
+            <line
+              key={segment.key}
+              className="dsu-trend-line"
+              data-series="cache"
+              data-level={segment.level}
+              x1={segment.x1}
+              y1={segment.y1}
+              x2={segment.x2}
+              y2={segment.y2}
+            />
+          ))}
           {showDots && points.map((point, index) => (
             <g key={`dot-${point.at}-${point.turn}-${point.step}`}>
               {point.contextRatio !== null && (
@@ -967,6 +1044,7 @@ export function StepTrendChart(props: {
                 <circle
                   className="dsu-trend-dot"
                   data-series="cache"
+                  data-level={trendHitLevel(point.cacheRatio) ?? 'normal'}
                   cx={xAt(index)}
                   cy={cacheYAt(point.cacheRatio)}
                   r={1.7}
@@ -996,6 +1074,7 @@ export function StepTrendChart(props: {
             <circle
               className="dsu-trend-cursor"
               data-series="cache"
+              data-level={trendHitLevel(hovered.cacheRatio) ?? 'normal'}
               cx={hoverX}
               cy={cacheYAt(hovered.cacheRatio)}
               r={3.2}
@@ -1021,7 +1100,11 @@ export function StepTrendChart(props: {
                 {`${formatTokenCount(hovered.promptTokens)} / ${formatTokenCount(props.windowTokens)}`}
               </div>
             )}
-            <div className="dsu-trend-tip-row" data-series="cache">
+            <div
+              className="dsu-trend-tip-row"
+              data-series="cache"
+              data-level={trendHitLevel(hovered.cacheRatio) ?? 'normal'}
+            >
               <i className="dsu-trend-swatch" aria-hidden="true" />
               <span>{t('trend.cache')}</span>
               <b>{hovered.cacheRatio === null ? '—' : formatPercentFixed(hovered.cacheRatio, 3)}</b>

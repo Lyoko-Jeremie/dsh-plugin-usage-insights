@@ -20,6 +20,12 @@ export const HIT_SCALE_EXPONENT = 0.3
  */
 export const FULL_HIT_RATIO = 0.9999995
 
+/** Lowest cache-hit rate that still reads as a healthy hit. */
+export const HIT_GOOD_RATIO = 0.9
+
+/** Lowest cache-hit rate that still reads as a warning rather than a miss. */
+export const HIT_WARN_RATIO = 0.7
+
 /** Smallest number of segments the ruler keeps, however narrow the track is. */
 export const HIT_MIN_DIVISIONS = 2
 
@@ -128,7 +134,7 @@ export function hitRatioAtWidth(width: number): number {
  */
 export function hitLevel(ratio: number | null): HitLevel {
   if (ratio === null) return 'none'
-  if (ratio >= 0.9) return 'good'
-  if (ratio >= 0.7) return 'warn'
+  if (ratio >= HIT_GOOD_RATIO) return 'good'
+  if (ratio >= HIT_WARN_RATIO) return 'warn'
   return 'bad'
 }

@@ -1361,6 +1361,8 @@ var import_react = require("react");
 // src/lib/hit-scale.ts
 var HIT_SCALE_EXPONENT = 0.3;
 var FULL_HIT_RATIO = 0.9999995;
+var HIT_GOOD_RATIO = 0.9;
+var HIT_WARN_RATIO = 0.7;
 var HIT_MIN_DIVISIONS = 2;
 var HIT_MIN_SEGMENT_PX = 40;
 function divisionsForWidth(trackWidth, minSegmentPx = HIT_MIN_SEGMENT_PX) {
@@ -1391,8 +1393,8 @@ function hitRatioAtWidth(width) {
 }
 function hitLevel(ratio) {
   if (ratio === null) return "none";
-  if (ratio >= 0.9) return "good";
-  if (ratio >= 0.7) return "warn";
+  if (ratio >= HIT_GOOD_RATIO) return "good";
+  if (ratio >= HIT_WARN_RATIO) return "warn";
   return "bad";
 }
 
@@ -1401,6 +1403,54 @@ var CONTEXT_SCALE_KNEE = 9;
 function contextBarRatio(ratio) {
   const clamped = Math.min(1, Math.max(0, ratio));
   return Math.log10(1 + CONTEXT_SCALE_KNEE * clamped) / Math.log10(1 + CONTEXT_SCALE_KNEE);
+}
+
+// src/lib/trend.ts
+function ratioOrNull(value) {
+  if (!Number.isFinite(value)) return null;
+  return Math.min(1, Math.max(0, value));
+}
+function tokenOrZero(value) {
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+function stepTrendPoints(steps, windowTokens) {
+  const capacity = windowTokens !== null && Number.isFinite(windowTokens) && windowTokens > 0 ? windowTokens : null;
+  return [...steps].sort((left, right) => left.at - right.at || left.turn - right.turn || left.step - right.step).map((step) => {
+    const promptTokens = tokenOrZero(step.uncachedInputTokens) + tokenOrZero(step.cacheReadTokens) + tokenOrZero(step.cacheWriteTokens);
+    return {
+      at: step.at,
+      turn: step.turn,
+      step: step.step,
+      agentIndex: step.agentIndex ?? null,
+      promptTokens,
+      contextRatio: capacity === null || promptTokens <= 0 ? null : ratioOrNull(promptTokens / capacity),
+      cacheRatio: promptTokens <= 0 ? null : ratioOrNull(tokenOrZero(step.cacheReadTokens) / promptTokens)
+    };
+  });
+}
+function hitSegmentParts(from, to) {
+  const start = hitBarRatio(from);
+  const end = hitBarRatio(to);
+  const goodEdge = hitBarRatio(HIT_GOOD_RATIO);
+  const warnEdge = hitBarRatio(HIT_WARN_RATIO);
+  const cuts = [0, 1];
+  if (start !== end) {
+    for (const edge of [goodEdge, warnEdge]) {
+      const at = (edge - start) / (end - start);
+      if (at > 0 && at < 1) cuts.push(at);
+    }
+  }
+  cuts.sort((left, right) => left - right);
+  const parts = [];
+  for (let index = 1; index < cuts.length; index += 1) {
+    const fromT = cuts[index - 1] ?? 0;
+    const toT = cuts[index] ?? 1;
+    if (toT - fromT < 1e-9) continue;
+    const middle = start + (end - start) * ((fromT + toT) / 2);
+    const level = middle >= goodEdge ? "good" : middle >= warnEdge ? "warn" : "bad";
+    parts.push({ from: fromT, to: toT, level });
+  }
+  return parts;
 }
 
 // src/client/styles.ts
@@ -2450,12 +2500,28 @@ var css2 = `
   stroke: var(--dsw-alias-state-success-primary);
 }
 
+.dsu-trend-line[data-series=cache][data-level=warn] {
+  stroke: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-trend-line[data-series=cache][data-level=bad] {
+  stroke: var(--dsw-alias-state-error-primary);
+}
+
 .dsu-trend-dot[data-series=context] {
   fill: var(--dsw-alias-brand-primary);
 }
 
 .dsu-trend-dot[data-series=cache] {
   fill: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-dot[data-series=cache][data-level=warn] {
+  fill: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-trend-dot[data-series=cache][data-level=bad] {
+  fill: var(--dsw-alias-state-error-primary);
 }
 
 .dsu-trend-hit {
@@ -2488,6 +2554,14 @@ var css2 = `
 
 .dsu-trend-cursor[data-series=cache] {
   fill: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-cursor[data-series=cache][data-level=warn] {
+  fill: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-trend-cursor[data-series=cache][data-level=bad] {
+  fill: var(--dsw-alias-state-error-primary);
 }
 
 .dsu-trend-tip {
@@ -2532,6 +2606,22 @@ var css2 = `
 
 .dsu-trend-tip-row[data-series=cache] .dsu-trend-swatch {
   background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-tip-row[data-series=cache][data-level=warn] .dsu-trend-swatch {
+  background: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-trend-tip-row[data-series=cache][data-level=bad] .dsu-trend-swatch {
+  background: var(--dsw-alias-state-error-primary);
+}
+
+.dsu-trend-tip-row[data-level=warn] b {
+  color: var(--dsw-alias-state-warn-label);
+}
+
+.dsu-trend-tip-row[data-level=bad] b {
+  color: var(--dsw-alias-state-error-primary);
 }
 
 .dsu-trend-tip-row b {
@@ -2954,6 +3044,36 @@ function trendPath(points, pick, xAt, yAt) {
   });
   return path;
 }
+function trendHitLevel(ratio) {
+  const level = hitLevel(ratio);
+  return level === "none" ? null : level;
+}
+function trendSegments(points, pick, xAt, yAt) {
+  const segments = [];
+  points.forEach((point, index) => {
+    if (index === 0) return;
+    const previous = points[index - 1];
+    if (previous === void 0) return;
+    const from = pick(previous);
+    const to = pick(point);
+    if (from === null || to === null) return;
+    const startX = xAt(index - 1);
+    const endX = xAt(index);
+    const startY = yAt(from);
+    const endY = yAt(to);
+    hitSegmentParts(from, to).forEach((part, partIndex) => {
+      segments.push({
+        key: `segment-${index}-${partIndex}`,
+        x1: startX + (endX - startX) * part.from,
+        y1: startY + (endY - startY) * part.from,
+        x2: startX + (endX - startX) * part.to,
+        y2: startY + (endY - startY) * part.to,
+        level: part.level
+      });
+    });
+  });
+  return segments;
+}
 function trendHitBounds(index, count2, xAt, plotLeft, plotRight) {
   if (count2 <= 1) return { x: plotLeft, width: Math.max(0.5, plotRight - plotLeft) };
   const before = index === 0 ? plotLeft : (xAt(index - 1) + xAt(index)) / 2;
@@ -2988,7 +3108,7 @@ function StepTrendChart(props) {
   const contextYAt = (ratio) => TREND_PAD_Y + (1 - contextBarRatio(ratio)) * plotHeight;
   const cacheYAt = (ratio) => TREND_PAD_Y + (1 - hitBarRatio(ratio)) * plotHeight;
   const contextPath = trendPath(points, (point) => point.contextRatio, xAt, contextYAt);
-  const cachePath = trendPath(points, (point) => point.cacheRatio, xAt, cacheYAt);
+  const cacheSegments = trendSegments(points, (point) => point.cacheRatio, xAt, cacheYAt);
   const latestContext = latestRatio(points, (point) => point.contextRatio);
   const latestCache = latestRatio(points, (point) => point.cacheRatio);
   const threshold = props.threshold === null || props.threshold === void 0 ? null : Math.min(1, Math.max(0, props.threshold));
@@ -3094,7 +3214,19 @@ function StepTrendChart(props) {
                   `cache-${position}`
                 )),
                 contextPath !== "" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { className: "dsu-trend-line", "data-series": "context", d: contextPath }),
-                cachePath !== "" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { className: "dsu-trend-line", "data-series": "cache", d: cachePath }),
+                cacheSegments.map((segment) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "line",
+                  {
+                    className: "dsu-trend-line",
+                    "data-series": "cache",
+                    "data-level": segment.level,
+                    x1: segment.x1,
+                    y1: segment.y1,
+                    x2: segment.x2,
+                    y2: segment.y2
+                  },
+                  segment.key
+                )),
                 showDots && points.map((point, index) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("g", { children: [
                   point.contextRatio !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                     "circle",
@@ -3111,6 +3243,7 @@ function StepTrendChart(props) {
                     {
                       className: "dsu-trend-dot",
                       "data-series": "cache",
+                      "data-level": trendHitLevel(point.cacheRatio) ?? "normal",
                       cx: xAt(index),
                       cy: cacheYAt(point.cacheRatio),
                       r: 1.7
@@ -3142,6 +3275,7 @@ function StepTrendChart(props) {
                   {
                     className: "dsu-trend-cursor",
                     "data-series": "cache",
+                    "data-level": trendHitLevel(hovered.cacheRatio) ?? "normal",
                     cx: hoverX,
                     cy: cacheYAt(hovered.cacheRatio),
                     r: 3.2
@@ -3164,11 +3298,19 @@ function StepTrendChart(props) {
                   /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: hovered.contextRatio === null ? "\u2014" : formatPercent(hovered.contextRatio) })
                 ] }),
                 hovered.contextRatio !== null && props.windowTokens !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsu-trend-tip-sub", children: `${formatTokenCount(hovered.promptTokens)} / ${formatTokenCount(props.windowTokens)}` }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsu-trend-tip-row", "data-series": "cache", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t("trend.cache") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: hovered.cacheRatio === null ? "\u2014" : formatPercentFixed(hovered.cacheRatio, 3) })
-                ] })
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+                  "div",
+                  {
+                    className: "dsu-trend-tip-row",
+                    "data-series": "cache",
+                    "data-level": trendHitLevel(hovered.cacheRatio) ?? "normal",
+                    children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t("trend.cache") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: hovered.cacheRatio === null ? "\u2014" : formatPercentFixed(hovered.cacheRatio, 3) })
+                    ]
+                  }
+                )
               ]
             }
           )
@@ -3331,30 +3473,6 @@ function HistoryPanel(props) {
       ] }) })
     ] })
   ] });
-}
-
-// src/lib/trend.ts
-function ratioOrNull(value) {
-  if (!Number.isFinite(value)) return null;
-  return Math.min(1, Math.max(0, value));
-}
-function tokenOrZero(value) {
-  return Number.isFinite(value) ? Math.max(0, value) : 0;
-}
-function stepTrendPoints(steps, windowTokens) {
-  const capacity = windowTokens !== null && Number.isFinite(windowTokens) && windowTokens > 0 ? windowTokens : null;
-  return [...steps].sort((left, right) => left.at - right.at || left.turn - right.turn || left.step - right.step).map((step) => {
-    const promptTokens = tokenOrZero(step.uncachedInputTokens) + tokenOrZero(step.cacheReadTokens) + tokenOrZero(step.cacheWriteTokens);
-    return {
-      at: step.at,
-      turn: step.turn,
-      step: step.step,
-      agentIndex: step.agentIndex ?? null,
-      promptTokens,
-      contextRatio: capacity === null || promptTokens <= 0 ? null : ratioOrNull(promptTokens / capacity),
-      cacheRatio: promptTokens <= 0 ? null : ratioOrNull(tokenOrZero(step.cacheReadTokens) / promptTokens)
-    };
-  });
 }
 
 // src/lib/tree.ts

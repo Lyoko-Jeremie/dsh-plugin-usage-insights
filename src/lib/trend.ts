@@ -7,6 +7,8 @@
  * prompt by the route's declared window, the same ratio the context section
  * shows; the cache ratio is cache reads over that prompt.
  */
+import { HIT_GOOD_RATIO, HIT_WARN_RATIO, hitBarRatio } from './hit-scale.ts'
+import type { HitLevel } from './hit-scale.ts'
 import type { UsageStepView } from '../client/contract.ts'
 
 /** One request of the trend, oldest first. */
@@ -90,4 +92,52 @@ export function stepTrendPoints(
           : ratioOrNull(tokenOrZero(step.cacheReadTokens) / promptTokens),
       }
     })
+}
+
+/** One same-colour slice of a segment between two cache-hit samples. */
+export interface HitSegmentPart {
+  /** Slice start as a fraction of the parent segment, in [0, 1]. */
+  from: number
+  /** Slice end as a fraction of the parent segment, in [0, 1]. */
+  to: number
+  /** Status colour the slice takes. */
+  level: Exclude<HitLevel, 'none'>
+}
+
+/**
+ * Split one segment between two cache-hit samples at the status thresholds.
+ *
+ * The plot maps a hit rate through the power scale, so a straight segment can
+ * cross both the 90% and 70% levels. The slice boundaries are the screen
+ * positions of those levels, which keeps each colour aligned with the
+ * horizontal guides: a segment that runs from green through yellow into red
+ * therefore shows all three colours across its own length.
+ *
+ * @param from - hit rate at the segment start, in [0, 1].
+ * @param to - hit rate at the segment end, in [0, 1].
+ * @returns slices in drawing order; a segment inside one level returns one.
+ */
+export function hitSegmentParts(from: number, to: number): HitSegmentPart[] {
+  const start = hitBarRatio(from)
+  const end = hitBarRatio(to)
+  const goodEdge = hitBarRatio(HIT_GOOD_RATIO)
+  const warnEdge = hitBarRatio(HIT_WARN_RATIO)
+  const cuts = [0, 1]
+  if (start !== end) {
+    for (const edge of [goodEdge, warnEdge]) {
+      const at = (edge - start) / (end - start)
+      if (at > 0 && at < 1) cuts.push(at)
+    }
+  }
+  cuts.sort((left, right) => left - right)
+  const parts: HitSegmentPart[] = []
+  for (let index = 1; index < cuts.length; index += 1) {
+    const fromT = cuts[index - 1] ?? 0
+    const toT = cuts[index] ?? 1
+    if (toT - fromT < 1e-9) continue
+    const middle = start + (end - start) * ((fromT + toT) / 2)
+    const level = middle >= goodEdge ? 'good' : middle >= warnEdge ? 'warn' : 'bad'
+    parts.push({ from: fromT, to: toT, level })
+  }
+  return parts
 }
