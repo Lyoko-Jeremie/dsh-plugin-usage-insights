@@ -75,6 +75,11 @@ describe('deriveSessionUsage', () => {
       totalTokens: 3_750,
       complete: true,
     })
+    expect(view.cacheAmount.total?.micros).toBe(3_750)
+    expect(view.cacheAmount.total?.slices.map(slice => slice.key)).toEqual([
+      'cacheRead', 'uncachedInput', 'cacheWrite', 'output',
+    ])
+    expect(view.cacheAmount.turn).toBeNull()
   })
 
   it('returns an empty view when no projection is available', () => {
@@ -90,6 +95,7 @@ describe('deriveSessionUsage', () => {
       billedInputTokens: 0,
       cacheRate: null,
       cacheHits: { total: null, turn: null, step: null },
+      cacheAmount: { total: null, turn: null, step: null },
       requests: 0,
       turns: 0,
       steps: 0,

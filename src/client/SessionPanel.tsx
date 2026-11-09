@@ -7,7 +7,7 @@
  * The header counts the whole delegation tree, subagents included.
  */
 import type { JSX } from 'react'
-import type { CostBasis, CostView, SessionPanelProps, Translate } from './contract'
+import type { AmountSliceKey, CostBasis, CostView, SessionPanelProps, Translate } from './contract'
 import {
   formatCount,
   formatDuration,
@@ -21,8 +21,9 @@ import { impliedBandPriceRatio, peakAmountShare, peakTokenShare } from '../lib/b
 import { stepTrendPoints } from '../lib/trend.ts'
 import { treeTotals } from '../lib/tree.ts'
 import {
-  bandShareText, ChildAgentsTable, CompositionBar, CompositionProgress, costBandShareText, HitBar, HitRuler,
-  InlineMessage, ProgressBar, Ring, Row, Section, Stat, StepTable, StepTrendChart, StyleTag, useHitDivisions,
+  AmountBar, AmountLegend, bandShareText, ChildAgentsTable, CompositionBar, CompositionProgress,
+  costBandShareText, HitBar, HitRuler, InlineMessage, ProgressBar, Ring, Row, Section, Stat, StepTable,
+  StepTrendChart, StyleTag, useHitDivisions,
 } from './components'
 import type { CompositionSegment } from './components'
 
@@ -117,6 +118,21 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
   const bandPriceRatio = view.bandShare !== null && view.costBandShare !== null
     ? impliedBandPriceRatio(view.bandShare, view.costBandShare)
     : null
+  // The amount bars repeat the three hit-rate scopes, so they share the same
+  // row labels. The cumulative composition decides which parts the legend
+  // lists: a turn or a request may not contain all four.
+  const amountLabels: Record<AmountSliceKey, string> = {
+    cacheRead: t('cacheHit.amount.cacheRead'),
+    uncachedInput: t('cacheHit.amount.uncachedInput'),
+    cacheWrite: t('cacheHit.amount.cacheWrite'),
+    output: t('cacheHit.amount.output'),
+  }
+  const amountKeys: AmountSliceKey[] = view.cacheAmount.total === null
+    ? []
+    : view.cacheAmount.total.slices.filter(slice => slice.tokens > 0).map(slice => slice.key)
+  const hasAmount = view.cacheAmount.total !== null
+    || view.cacheAmount.turn !== null
+    || view.cacheAmount.step !== null
   return (
     <div className="dsu-root">
       <StyleTag />
@@ -280,6 +296,35 @@ export function SessionPanel(props: SessionPanelProps): JSX.Element {
             <HitBar divisions={hitRuler.divisions} label={t('cacheHit.turn')} ratio={view.cacheHits.turn} />
             <HitBar divisions={hitRuler.divisions} label={t('cacheHit.step')} ratio={view.cacheHits.step} />
           </div>
+          {hasAmount && (
+            <>
+              <div className="dsu-amount-head">
+                <span className="dsu-amount-title">{t('cacheHit.amountTitle')}</span>
+                <span className="dsu-amount-hint">{t('cacheHit.amount.hint')}</span>
+              </div>
+              <div className="dsu-hits dsu-amounts">
+                <AmountBar
+                  label={t('cacheHit.total')}
+                  amount={view.cacheAmount.total}
+                  labels={amountLabels}
+                  partialLabel={t('cacheHit.amount.partial')}
+                />
+                <AmountBar
+                  label={t('cacheHit.turn')}
+                  amount={view.cacheAmount.turn}
+                  labels={amountLabels}
+                  partialLabel={t('cacheHit.amount.partial')}
+                />
+                <AmountBar
+                  label={t('cacheHit.step')}
+                  amount={view.cacheAmount.step}
+                  labels={amountLabels}
+                  partialLabel={t('cacheHit.amount.partial')}
+                />
+              </div>
+              <AmountLegend keys={amountKeys} labels={amountLabels} />
+            </>
+          )}
         </Section>
       )}
       {(view.hasUsage || hasContext) && (

@@ -8,7 +8,10 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import type { JSX, ReactNode, RefObject } from 'react'
-import type { BandShareView, ChildAgentView, CostBandShare, DayTotal, StepDetailView, Translate } from './contract'
+import type {
+  AmountBreakdownView, AmountSliceKey, BandShareView, ChildAgentView, CostBandShare, DayTotal,
+  StepDetailView, Translate,
+} from './contract'
 import { peakRequestShare, peakTokenShare } from '../lib/band-share.ts'
 import { divisionsForWidth, hitBarRatio, hitLevel, hitRatioAtWidth, hitTicks, hitTickLabel } from '../lib/hit-scale.ts'
 import { contextBarRatio } from '../lib/context-scale.ts'
@@ -185,6 +188,78 @@ export function HitBar(props: { divisions: number; label: string; ratio: number 
       <span className="dsu-hit-value" data-level={level}>
         {props.ratio === null ? '—' : formatPercentFixed(props.ratio, 3)}
       </span>
+    </div>
+  )
+}
+
+/**
+ * Billed-amount bar for one cache-hit scope.
+ *
+ * The track splits the scope's amount by token purpose; each segment takes its
+ * share of the total, so the bar reads as one picture. The value on the right
+ * is the scope's amount, a range when the price table varies by band.
+ *
+ * @param props - row label, the composition or null without a price, part names
+ * and the note shown when part of the tokens stayed unpriced.
+ * @returns the rendered amount row.
+ */
+export function AmountBar(props: {
+  label: string
+  amount: AmountBreakdownView | null
+  labels: Record<AmountSliceKey, string>
+  partialLabel: string
+}): JSX.Element {
+  const amount = props.amount
+  const description = amount === null
+    ? props.label
+    : amount.slices
+      .filter(slice => slice.micros > 0)
+      .map(slice => `${props.labels[slice.key]} ${formatMoneyRange(slice.micros, slice.microsMax, amount.currency)}`)
+      .join(' · ')
+  return (
+    <div className="dsu-hit dsu-hit--amount">
+      <span className="dsu-hit-label">{props.label}</span>
+      <div className="dsu-hit-track dsu-amount-track" role="img" aria-label={description}>
+        {amount !== null && amount.slices.map(slice => slice.micros > 0 && (
+          <span
+            key={slice.key}
+            className="dsu-amount-seg"
+            data-part={slice.key}
+            style={{ flexGrow: slice.micros }}
+          />
+        ))}
+      </div>
+      <span
+        className="dsu-hit-value dsu-amount-value"
+        title={amount !== null && !amount.complete ? props.partialLabel : undefined}
+      >
+        {amount === null
+          ? '—'
+          : `${formatMoneyRange(amount.micros, amount.microsMax, amount.currency)}${amount.complete ? '' : '*'}`}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * Colour legend of the billed-amount bars.
+ *
+ * @param props - the parts the cumulative composition actually carries, and their names.
+ * @returns the rendered legend.
+ */
+export function AmountLegend(props: {
+  keys: readonly AmountSliceKey[]
+  labels: Record<AmountSliceKey, string>
+}): JSX.Element {
+  if (props.keys.length === 0) return <></>
+  return (
+    <div className="dsu-compose-legend dsu-amount-legend">
+      {props.keys.map(key => (
+        <span key={key}>
+          <i className="dsu-swatch" data-part={key} />
+          {props.labels[key]}
+        </span>
+      ))}
     </div>
   )
 }

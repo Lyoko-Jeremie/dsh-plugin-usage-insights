@@ -74,7 +74,15 @@ const populated = {
   usageSteps: { steps: [stepRow], totalSteps: 3, omittedSteps: 2 },
   usageBands: {
     days: [{ day: beijingDay(STEP_AT), peak: [{ ...stepRow, requests: 1 }], offPeak: [] }],
-    total: { peak: [{ ...stepRow, requests: 1 }], offPeak: [] },
+    // The lifetime rollup carries the same buckets as `tokenUsage`, so the
+    // amount composition can be checked end to end.
+    total: {
+      peak: [{
+        ...stepRow, requests: 1, uncachedInputTokens: 48210, cacheReadTokens: 96000,
+        cacheWriteTokens: 1200, outputTokens: 9077,
+      }],
+      offPeak: [],
+    },
   },
   contextPressure: { pressureTokens: 43000, projectedTokens: 43600, contextWindow: 128000 },
   contextBreakdown: { systemTokens: 6200, toolsTokens: 12800, messageTokens: 24600 },
@@ -153,6 +161,8 @@ const cases = [
       '[section.trend]', '[trend.context]', '[trend.cache]', 'dsu-trend',
       '[section.cacheHit]', '[cacheHit.total]', '[cacheHit.turn]', '[cacheHit.step]', 'dsu-hit', 'dsu-hit-fill',
       'dsu-hit-tick', 'dsu-hit-grid',
+      '[cacheHit.amountTitle]', '[cacheHit.amount.cacheRead]', '[cacheHit.amount.uncachedInput]',
+      '[cacheHit.amount.cacheWrite]', '[cacheHit.amount.output]', 'dsu-amount-head', 'dsu-amount-seg',
       '[steps.showAll]', '[context.breakdown.tools]', '[context.breakdown.messages]']],
   ['session: subagent', session, propsFor(populated, list, 's2'),
     ['[agent.subagent]', '[agent.parent]']],

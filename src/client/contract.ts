@@ -201,6 +201,52 @@ export interface CacheHitView {
   step: number | null
 }
 
+/** One billed purpose in the amount composition. */
+export type AmountSliceKey = 'cacheRead' | 'uncachedInput' | 'cacheWrite' | 'output'
+
+/** One purpose's amount inside a scope's billed total. */
+export interface AmountSliceView {
+  key: AmountSliceKey
+  /** Lower-bound amount in micro units (1e-6 of the currency). */
+  micros: number
+  /** Upper bound when the price table varies by billing band. */
+  microsMax?: number
+  /** Tokens behind this part. */
+  tokens: number
+}
+
+/**
+ * One scope's billed amount, split into the four token purposes it paid for.
+ *
+ * A cache read is charged at the cache-read rate, an uncached input token at
+ * the input rate, a cache write at the cache-write rate, and output at the
+ * output rate. The slices therefore sum to the price of the same scope's
+ * token buckets.
+ */
+export interface AmountBreakdownView {
+  /** Fixed display order; parts with no tokens remain present. */
+  slices: readonly AmountSliceView[]
+  /** Sum of the slice lower bounds. */
+  micros: number
+  /** Sum of the slice upper bounds; absent when one rate applies everywhere. */
+  microsMax?: number
+  currency: string
+  /** False when part of the tokens had no price. */
+  complete: boolean
+  /** Tokens the price table could not cover. */
+  unpricedTokens: number
+}
+
+/** The billed amount composition at the three cache-hit scopes. */
+export interface CacheAmountView {
+  /** Whole durable log, or null when it billed no tokens. */
+  total: AmountBreakdownView | null
+  /** Requests of the newest turn, or null without a request window. */
+  turn: AmountBreakdownView | null
+  /** The most recent request, or null without a request window. */
+  step: AmountBreakdownView | null
+}
+
 /** Everything the single-conversation panel renders. */
 export interface SessionUsageView {
   buckets: TokenBuckets
@@ -212,6 +258,8 @@ export interface SessionUsageView {
   cacheRate: number | null
   /** Cache-hit ratios by scope; turn and step need the request window. */
   cacheHits: CacheHitView
+  /** Billed amount of the same three scopes, split by token purpose. */
+  cacheAmount: CacheAmountView
   /** Model calls in this conversation; the session-stats step count in v0.1. */
   requests: number
   turns: number

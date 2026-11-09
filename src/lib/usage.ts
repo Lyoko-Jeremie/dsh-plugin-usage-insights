@@ -10,6 +10,7 @@ import type {
   SessionUsageView, StepActivityView, StepDetailView, TokenBuckets, UsageBandsView, UsageStepView,
 } from '../client/contract.ts'
 import { bandShareOf } from './band-share.ts'
+import { deriveCacheAmount } from './cache-amount.ts'
 import { mergeCosts, priceBuckets, priceBucketsInBand } from './pricing.ts'
 
 /** Inputs of {@link deriveSessionUsage}: projection values plus the price table. */
@@ -73,6 +74,7 @@ export function deriveSessionUsage(input: SessionUsageInput): SessionUsageView {
     billedInputTokens,
     cacheRate,
     cacheHits: cacheHitsOf(input.steps, cacheRate),
+    cacheAmount: deriveCacheAmount(input.pricing, input.bands, input.steps?.steps, model, buckets),
     requests: input.steps?.totalSteps ?? stats?.steps ?? 0,
     turns: stats?.turns ?? 0,
     steps: stats?.steps ?? 0,

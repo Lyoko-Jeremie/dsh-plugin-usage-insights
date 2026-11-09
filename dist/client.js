@@ -54,6 +54,13 @@ var en = {
   "cacheHit.total": "Cumulative (this conversation)",
   "cacheHit.turn": "Current turn",
   "cacheHit.step": "Latest request",
+  "cacheHit.amountTitle": "Billed amount",
+  "cacheHit.amount.hint": "Each scope split by what its tokens paid for",
+  "cacheHit.amount.cacheRead": "Cache hit",
+  "cacheHit.amount.uncachedInput": "Cache miss",
+  "cacheHit.amount.cacheWrite": "Cache write",
+  "cacheHit.amount.output": "Output",
+  "cacheHit.amount.partial": "Part of these tokens has no price",
   "section.context": "Context window",
   "section.trend": "Step trend",
   "trend.context": "Context usage",
@@ -199,6 +206,13 @@ var zh = {
   "cacheHit.total": "\u7D2F\u8BA1\uFF08\u672C\u4F1A\u8BDD\uFF09",
   "cacheHit.turn": "\u5F53\u524D\u56DE\u5408",
   "cacheHit.step": "\u6700\u8FD1\u4E00\u6B65",
+  "cacheHit.amountTitle": "\u8BA1\u8D39\u91D1\u989D\u6784\u6210",
+  "cacheHit.amount.hint": "\u6309\u5404\u6BB5\u91D1\u989D\u5360\u6BD4\uFF0C\u4E0E\u4E0A\u65B9\u4E09\u6761\u540C\u53E3\u5F84",
+  "cacheHit.amount.cacheRead": "\u7F13\u5B58\u547D\u4E2D",
+  "cacheHit.amount.uncachedInput": "\u7F13\u5B58\u672A\u547D\u4E2D",
+  "cacheHit.amount.cacheWrite": "\u7F13\u5B58\u5199",
+  "cacheHit.amount.output": "\u8F93\u51FA",
+  "cacheHit.amount.partial": "\u90E8\u5206 Token \u672A\u914D\u7F6E\u4EF7\u683C",
   "section.context": "\u4E0A\u4E0B\u6587\u7A97\u53E3",
   "section.trend": "\u9010\u6B65\u8D70\u52BF",
   "trend.context": "\u4E0A\u4E0B\u6587\u5360\u7528",
@@ -1130,6 +1144,141 @@ function mergeStepActivity(root, children, limit) {
   };
 }
 
+// src/lib/cache-amount.ts
+var SLICE_KEYS = ["cacheRead", "uncachedInput", "cacheWrite", "output"];
+function sliceBuckets(key, tokens) {
+  return {
+    uncachedInputTokens: key === "uncachedInput" ? tokens : 0,
+    cacheReadTokens: key === "cacheRead" ? tokens : 0,
+    cacheWriteTokens: key === "cacheWrite" ? tokens : 0,
+    outputTokens: key === "output" ? tokens : 0
+  };
+}
+function sliceTokens(key, buckets) {
+  switch (key) {
+    case "cacheRead":
+      return buckets.cacheReadTokens;
+    case "uncachedInput":
+      return buckets.uncachedInputTokens;
+    case "cacheWrite":
+      return buckets.cacheWriteTokens;
+    case "output":
+      return buckets.outputTokens;
+  }
+}
+function emptyAccumulator() {
+  const zero = () => ({
+    cacheRead: 0,
+    uncachedInput: 0,
+    cacheWrite: 0,
+    output: 0
+  });
+  return { micros: zero(), tokens: zero(), unpricedTokens: 0, priced: false };
+}
+function accumulate(acc, pricing, route, buckets, band) {
+  for (const key of SLICE_KEYS) {
+    const tokens = sliceTokens(key, buckets);
+    acc.tokens[key] += tokens;
+    if (tokens === 0) continue;
+    const priced = priceBucketsInBand(pricing, route, sliceBuckets(key, tokens), band);
+    if (priced === null) {
+      acc.unpricedTokens += tokens;
+      continue;
+    }
+    acc.priced = true;
+    acc.micros[key] += priced.amountMicros;
+  }
+}
+function build(acc, currency) {
+  const slices = SLICE_KEYS.map((key) => ({
+    key,
+    micros: acc.micros[key],
+    tokens: acc.tokens[key]
+  }));
+  const micros = SLICE_KEYS.reduce((sum, key) => sum + acc.micros[key], 0);
+  return {
+    slices,
+    micros,
+    currency,
+    complete: acc.unpricedTokens === 0,
+    unpricedTokens: acc.unpricedTokens
+  };
+}
+function withMax(low, high) {
+  return {
+    ...low,
+    microsMax: high.micros,
+    slices: low.slices.map((slice, index) => {
+      const top = high.slices[index] ?? slice;
+      return top.micros === slice.micros ? slice : { ...slice, microsMax: top.micros };
+    })
+  };
+}
+function priceCumulative(pricing, route, buckets) {
+  const total = SLICE_KEYS.reduce((sum, key) => sum + sliceTokens(key, buckets), 0);
+  if (total === 0) return null;
+  const peak = emptyAccumulator();
+  const offPeak = emptyAccumulator();
+  accumulate(peak, pricing, route, buckets, "peak");
+  accumulate(offPeak, pricing, route, buckets, "off-peak");
+  const peakView = peak.priced ? build(peak, pricing.currency) : null;
+  const offPeakView = offPeak.priced ? build(offPeak, pricing.currency) : null;
+  if (peakView === null) return offPeakView;
+  if (offPeakView === null) return peakView;
+  if (peakView.micros === offPeakView.micros) return peakView;
+  return peakView.micros < offPeakView.micros ? withMax(peakView, offPeakView) : withMax(offPeakView, peakView);
+}
+function accumulateEntries(entries, band, pricing, fallback, acc) {
+  for (const entry of entries) {
+    const route = entry.provider.length > 0 && entry.model.length > 0 ? { provider: entry.provider, model: entry.model } : fallback;
+    accumulate(acc, pricing, route, {
+      uncachedInputTokens: entry.uncachedInputTokens,
+      cacheReadTokens: entry.cacheReadTokens,
+      cacheWriteTokens: entry.cacheWriteTokens,
+      outputTokens: entry.outputTokens
+    }, band);
+  }
+}
+function priceBands2(bands, pricing, fallback) {
+  const acc = emptyAccumulator();
+  accumulateEntries(bands.total.peak, "peak", pricing, fallback, acc);
+  accumulateEntries(bands.total.offPeak, "off-peak", pricing, fallback, acc);
+  return acc.priced ? build(acc, pricing.currency) : null;
+}
+function routeOf(step) {
+  return step.provider.length > 0 && step.model.length > 0 ? { provider: step.provider, model: step.model } : null;
+}
+function bucketsOf(step) {
+  return {
+    uncachedInputTokens: step.uncachedInputTokens,
+    cacheReadTokens: step.cacheReadTokens,
+    cacheWriteTokens: step.cacheWriteTokens,
+    outputTokens: step.outputTokens
+  };
+}
+function priceStep(step, pricing, fallback) {
+  const acc = emptyAccumulator();
+  accumulate(acc, pricing, routeOf(step) ?? fallback, bucketsOf(step), step.band);
+  return acc.priced ? build(acc, pricing.currency) : null;
+}
+function priceTurn(steps, last, pricing, fallback) {
+  const acc = emptyAccumulator();
+  for (const step of steps) {
+    if (step.turn !== last.turn) continue;
+    accumulate(acc, pricing, routeOf(step) ?? fallback, bucketsOf(step), step.band);
+  }
+  return acc.priced ? build(acc, pricing.currency) : null;
+}
+function deriveCacheAmount(pricing, bands, steps, fallback, totalBuckets) {
+  const rows = steps ?? [];
+  const last = rows.at(-1);
+  return {
+    total: bands !== null && bands !== void 0 ? priceBands2(bands, pricing, fallback) : priceCumulative(pricing, fallback, totalBuckets),
+    turn: last === void 0 ? null : priceTurn(rows, last, pricing, fallback),
+    step: last === void 0 ? null : priceStep(last, pricing, fallback)
+  };
+}
+
 // src/lib/usage.ts
 function deriveSessionUsage(input) {
   const buckets = normalizeBuckets(input.tokenUsage);
@@ -1146,6 +1295,7 @@ function deriveSessionUsage(input) {
     billedInputTokens,
     cacheRate,
     cacheHits: cacheHitsOf(input.steps, cacheRate),
+    cacheAmount: deriveCacheAmount(input.pricing, input.bands, input.steps?.steps, model, buckets),
     requests: input.steps?.totalSteps ?? stats?.steps ?? 0,
     turns: stats?.turns ?? 0,
     steps: stats?.steps ?? 0,
@@ -1231,14 +1381,14 @@ function decorateStepDetails(raw, fallback, pricing) {
   const steps = raw.steps.map((step) => ({
     ...step,
     agentIndex: null,
-    cost: priceBucketsInBand(pricing, routeOf(step) ?? fallback, bucketsOf(step), step.band)
+    cost: priceBucketsInBand(pricing, routeOf2(step) ?? fallback, bucketsOf2(step), step.band)
   }));
   return { steps, totalSteps: raw.totalSteps, omittedSteps: raw.omittedSteps };
 }
-function routeOf(step) {
+function routeOf2(step) {
   return step.provider.length > 0 && step.model.length > 0 ? { provider: step.provider, model: step.model } : null;
 }
-function bucketsOf(step) {
+function bucketsOf2(step) {
   return {
     uncachedInputTokens: step.uncachedInputTokens,
     cacheReadTokens: step.cacheReadTokens,
@@ -1886,6 +2036,58 @@ var css2 = `
   color: var(--dsw-alias-label-tertiary);
 }
 
+.dsu-amount-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin: 10px 0 2px;
+}
+
+.dsu-amount-title {
+  flex: 0 0 auto;
+  font-weight: 500;
+}
+
+.dsu-amount-hint {
+  min-width: 0;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.dsu-amount-track {
+  display: flex;
+}
+
+.dsu-amount-seg {
+  height: 100%;
+  min-width: 2px;
+}
+
+.dsu-amount-seg[data-part='cacheRead'] {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-amount-seg[data-part='uncachedInput'] {
+  background: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-amount-seg[data-part='cacheWrite'] {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.dsu-amount-seg[data-part='output'] {
+  background: var(--dsw-alias-state-error-primary);
+}
+
+.dsu-amount-value {
+  min-width: 64px;
+}
+
+.dsu-amount-legend {
+  margin-top: 2px;
+}
+
 .dsu-rows {
   display: flex;
   flex-direction: column;
@@ -2261,6 +2463,22 @@ var css2 = `
 
 .dsu-swatch[data-part='messages'] {
   background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-swatch[data-part='cacheRead'] {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-swatch[data-part='uncachedInput'] {
+  background: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-swatch[data-part='cacheWrite'] {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.dsu-swatch[data-part='output'] {
+  background: var(--dsw-alias-state-error-primary);
 }
 
 .dsu-bars-axis {
@@ -2748,6 +2966,37 @@ function HitBar(props) {
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsu-hit-value", "data-level": level, children: props.ratio === null ? "\u2014" : formatPercentFixed(props.ratio, 3) })
   ] });
+}
+function AmountBar(props) {
+  const amount = props.amount;
+  const description = amount === null ? props.label : amount.slices.filter((slice) => slice.micros > 0).map((slice) => `${props.labels[slice.key]} ${formatMoneyRange(slice.micros, slice.microsMax, amount.currency)}`).join(" \xB7 ");
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsu-hit dsu-hit--amount", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsu-hit-label", children: props.label }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsu-hit-track dsu-amount-track", role: "img", "aria-label": description, children: amount !== null && amount.slices.map((slice) => slice.micros > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      "span",
+      {
+        className: "dsu-amount-seg",
+        "data-part": slice.key,
+        style: { flexGrow: slice.micros }
+      },
+      slice.key
+    )) }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      "span",
+      {
+        className: "dsu-hit-value dsu-amount-value",
+        title: amount !== null && !amount.complete ? props.partialLabel : void 0,
+        children: amount === null ? "\u2014" : `${formatMoneyRange(amount.micros, amount.microsMax, amount.currency)}${amount.complete ? "" : "*"}`
+      }
+    )
+  ] });
+}
+function AmountLegend(props) {
+  if (props.keys.length === 0) return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, {});
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsu-compose-legend dsu-amount-legend", children: props.keys.map((key) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-swatch", "data-part": key }),
+    props.labels[key]
+  ] }, key)) });
 }
 function HitRuler(props) {
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsu-hit dsu-hit--ruler", "aria-hidden": "true", children: [
@@ -3546,6 +3795,14 @@ function SessionPanel(props) {
   const costRingLabel = costPeakShare === null ? "\u2014" : formatPercent(costPeakShare);
   const currency = view.cost?.currency ?? "";
   const bandPriceRatio = view.bandShare !== null && view.costBandShare !== null ? impliedBandPriceRatio(view.bandShare, view.costBandShare) : null;
+  const amountLabels = {
+    cacheRead: t("cacheHit.amount.cacheRead"),
+    uncachedInput: t("cacheHit.amount.uncachedInput"),
+    cacheWrite: t("cacheHit.amount.cacheWrite"),
+    output: t("cacheHit.amount.output")
+  };
+  const amountKeys = view.cacheAmount.total === null ? [] : view.cacheAmount.total.slices.filter((slice) => slice.tokens > 0).map((slice) => slice.key);
+  const hasAmount = view.cacheAmount.total !== null || view.cacheAmount.turn !== null || view.cacheAmount.step !== null;
   return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsu-root", children: [
     /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(StyleTag, {}),
     /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("header", { className: "dsu-head", children: [
@@ -3688,12 +3945,50 @@ function SessionPanel(props) {
         ] })
       ] })
     ] }),
-    view.hasUsage && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Section, { title: t("section.cacheHit"), children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsu-hits", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(HitRuler, { divisions: hitRuler.divisions, trackRef: hitRuler.trackRef }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(HitBar, { divisions: hitRuler.divisions, label: t("cacheHit.total"), ratio: view.cacheHits.total }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(HitBar, { divisions: hitRuler.divisions, label: t("cacheHit.turn"), ratio: view.cacheHits.turn }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(HitBar, { divisions: hitRuler.divisions, label: t("cacheHit.step"), ratio: view.cacheHits.step })
-    ] }) }),
+    view.hasUsage && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Section, { title: t("section.cacheHit"), children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsu-hits", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(HitRuler, { divisions: hitRuler.divisions, trackRef: hitRuler.trackRef }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(HitBar, { divisions: hitRuler.divisions, label: t("cacheHit.total"), ratio: view.cacheHits.total }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(HitBar, { divisions: hitRuler.divisions, label: t("cacheHit.turn"), ratio: view.cacheHits.turn }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(HitBar, { divisions: hitRuler.divisions, label: t("cacheHit.step"), ratio: view.cacheHits.step })
+      ] }),
+      hasAmount && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsu-amount-head", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsu-amount-title", children: t("cacheHit.amountTitle") }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsu-amount-hint", children: t("cacheHit.amount.hint") })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsu-hits dsu-amounts", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            AmountBar,
+            {
+              label: t("cacheHit.total"),
+              amount: view.cacheAmount.total,
+              labels: amountLabels,
+              partialLabel: t("cacheHit.amount.partial")
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            AmountBar,
+            {
+              label: t("cacheHit.turn"),
+              amount: view.cacheAmount.turn,
+              labels: amountLabels,
+              partialLabel: t("cacheHit.amount.partial")
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            AmountBar,
+            {
+              label: t("cacheHit.step"),
+              amount: view.cacheAmount.step,
+              labels: amountLabels,
+              partialLabel: t("cacheHit.amount.partial")
+            }
+          )
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(AmountLegend, { keys: amountKeys, labels: amountLabels })
+      ] })
+    ] }),
     (view.hasUsage || hasContext) && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Section, { title: t("section.context"), children: context.windowTokens === null ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(InlineMessage, { children: t("context.capacityUnknown") }) : /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsu-ctx", children: [
       context.usedTokens === null ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(InlineMessage, { children: t("context.notReported") }) : /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsu-ctx-line", children: [
         /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "dsu-ctx-used", children: [

@@ -31,6 +31,13 @@ The plugin adds two right-Sidebar pages.
   narrowest still keeps 2; the tick lines cut into each bar share those positions. The
   percentage keeps three decimals (for example `99.618%`) and is coloured by status: green at
   90% or above, amber from 70%, red below.
+- **Billed amount composition**: three more bars under the hit-rate bars, for the same scopes
+  (cumulative, current turn, latest request). Each splits that scope's billed amount by purpose
+  — cache hit (cache read), cache miss (uncached input), cache write and output — with each
+  segment as wide as its share of the scope's amount and the scope total on the right. Requests
+  are priced in the band they actually ran in; without a per-band rollup the cumulative buckets
+  are priced at both bands, the lower amount is drawn and the range is shown on the right. A `*`
+  marks an amount that covers only part of the tokens because some had no configured price.
 - **Token figures**: the overview's Token card (including its input/output hint) uses compact
   `K` / `M` / `G` units; the remaining overview rows, session metrics, subagent detail and
   request ledger show exact grouped integers (for example `275,123,456`); the header total

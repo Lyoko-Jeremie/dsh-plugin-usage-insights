@@ -438,6 +438,58 @@ export const css = `
   color: var(--dsw-alias-label-tertiary);
 }
 
+.dsu-amount-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin: 10px 0 2px;
+}
+
+.dsu-amount-title {
+  flex: 0 0 auto;
+  font-weight: 500;
+}
+
+.dsu-amount-hint {
+  min-width: 0;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.dsu-amount-track {
+  display: flex;
+}
+
+.dsu-amount-seg {
+  height: 100%;
+  min-width: 2px;
+}
+
+.dsu-amount-seg[data-part='cacheRead'] {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-amount-seg[data-part='uncachedInput'] {
+  background: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-amount-seg[data-part='cacheWrite'] {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.dsu-amount-seg[data-part='output'] {
+  background: var(--dsw-alias-state-error-primary);
+}
+
+.dsu-amount-value {
+  min-width: 64px;
+}
+
+.dsu-amount-legend {
+  margin-top: 2px;
+}
+
 .dsu-rows {
   display: flex;
   flex-direction: column;
@@ -813,6 +865,22 @@ export const css = `
 
 .dsu-swatch[data-part='messages'] {
   background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-swatch[data-part='cacheRead'] {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-swatch[data-part='uncachedInput'] {
+  background: var(--dsw-alias-state-warn-primary);
+}
+
+.dsu-swatch[data-part='cacheWrite'] {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.dsu-swatch[data-part='output'] {
+  background: var(--dsw-alias-state-error-primary);
 }
 
 .dsu-bars-axis {
