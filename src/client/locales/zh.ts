@@ -37,7 +37,6 @@ export const zh = {
   'trend.cache': '缓存命中',
   'trend.cacheScale': '对数',
   'trend.amount': '单步金额',
-  'trend.amountScale': '线性 0–峰值',
   'trend.count': '{n} 步',
   'trend.empty': '请求太少，暂时无法绘制走势',
   'section.metrics': '会话指标',

@@ -1126,6 +1126,8 @@ export const css = `
 
 .dsu-trend-line[data-series=amount] {
   stroke: var(--dsw-alias-state-done-primary);
+  stroke-dasharray: 4 3;
+  opacity: 0.55;
 }
 
 .dsu-trend-line[data-series=cache][data-level=warn] {

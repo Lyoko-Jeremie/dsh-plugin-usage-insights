@@ -68,7 +68,6 @@ var en = {
   "trend.cache": "Cache hit",
   "trend.cacheScale": "log",
   "trend.amount": "Step cost",
-  "trend.amountScale": "linear 0\u2013peak",
   "trend.count": "{n} steps",
   "trend.empty": "Not enough requests to draw a trend",
   "section.metrics": "Session metrics",
@@ -222,7 +221,6 @@ var zh = {
   "trend.cache": "\u7F13\u5B58\u547D\u4E2D",
   "trend.cacheScale": "\u5BF9\u6570",
   "trend.amount": "\u5355\u6B65\u91D1\u989D",
-  "trend.amountScale": "\u7EBF\u6027 0\u2013\u5CF0\u503C",
   "trend.count": "{n} \u6B65",
   "trend.empty": "\u8BF7\u6C42\u592A\u5C11\uFF0C\u6682\u65F6\u65E0\u6CD5\u7ED8\u5236\u8D70\u52BF",
   "section.metrics": "\u4F1A\u8BDD\u6307\u6807",
@@ -2732,6 +2730,8 @@ var css2 = `
 
 .dsu-trend-line[data-series=amount] {
   stroke: var(--dsw-alias-state-done-primary);
+  stroke-dasharray: 4 3;
+  opacity: 0.55;
 }
 
 .dsu-trend-line[data-series=cache][data-level=warn] {
@@ -3428,8 +3428,7 @@ function StepTrendChart(props) {
       showAmount && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "dsu-trend-key", "data-series": "amount", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),
         t("trend.amount"),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: latestAmount === null ? "\u2014" : formatMoney(latestAmount.micros, latestAmount.currency) }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsu-trend-scale", children: t("trend.amountScale") })
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: latestAmount === null ? "\u2014" : formatMoney(latestAmount.micros, latestAmount.currency) })
       ] }),
       threshold !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "dsu-trend-key", "data-series": "threshold", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),

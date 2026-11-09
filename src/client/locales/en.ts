@@ -35,7 +35,6 @@ export const en = {
   'trend.cache': 'Cache hit',
   'trend.cacheScale': 'log',
   'trend.amount': 'Step cost',
-  'trend.amountScale': 'linear 0–peak',
   'trend.count': '{n} steps',
   'trend.empty': 'Not enough requests to draw a trend',
   'section.metrics': 'Session metrics',

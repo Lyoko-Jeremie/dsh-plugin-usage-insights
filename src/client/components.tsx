@@ -1048,7 +1048,6 @@ export function StepTrendChart(props: {
             <i className="dsu-trend-swatch" aria-hidden="true" />
             {t('trend.amount')}
             <b>{latestAmount === null ? '—' : formatMoney(latestAmount.micros, latestAmount.currency)}</b>
-            <span className="dsu-trend-scale">{t('trend.amountScale')}</span>
           </span>
         )}
         {threshold !== null && (
