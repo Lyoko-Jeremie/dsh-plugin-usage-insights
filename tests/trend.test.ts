@@ -74,6 +74,40 @@ describe('stepTrendPoints', () => {
     const points = stepTrendPoints([step({ agentIndex: 2 })], 1_000)
     expect(points[0]?.agentIndex).toBe(2)
   })
+
+  it('reads the priced amount and its currency', () => {
+    const points = stepTrendPoints([
+      step({ cost: { amountMicros: 1_250, currency: 'CNY', pricedTokens: 100, totalTokens: 100, complete: true } }),
+    ], 1_000)
+    expect(points[0]?.amountMicros).toBe(1_250)
+    expect(points[0]?.amountCurrency).toBe('CNY')
+  })
+
+  it('keeps the amount unknown without a price', () => {
+    const points = stepTrendPoints([step()], 1_000)
+    expect(points[0]?.amountMicros).toBeNull()
+    expect(points[0]?.amountCurrency).toBeNull()
+  })
+
+  it('clamps a negative amount and rejects a non-finite one', () => {
+    const negative = stepTrendPoints([
+      step({ cost: { amountMicros: -5, currency: 'CNY', pricedTokens: 100, totalTokens: 100, complete: true } }),
+    ], 1_000)
+    expect(negative[0]?.amountMicros).toBe(0)
+    const infinite = stepTrendPoints([
+      step({
+        cost: {
+          amountMicros: Number.POSITIVE_INFINITY,
+          currency: 'CNY',
+          pricedTokens: 100,
+          totalTokens: 100,
+          complete: true,
+        },
+      }),
+    ], 1_000)
+    expect(infinite[0]?.amountMicros).toBeNull()
+    expect(infinite[0]?.amountCurrency).toBeNull()
+  })
 })
 
 describe('hitSegmentParts', () => {

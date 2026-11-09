@@ -67,6 +67,8 @@ var en = {
   "trend.contextScale": "log",
   "trend.cache": "Cache hit",
   "trend.cacheScale": "log",
+  "trend.amount": "Step cost",
+  "trend.amountScale": "linear 0\u2013peak",
   "trend.count": "{n} steps",
   "trend.empty": "Not enough requests to draw a trend",
   "section.metrics": "Session metrics",
@@ -219,6 +221,8 @@ var zh = {
   "trend.contextScale": "\u5BF9\u6570",
   "trend.cache": "\u7F13\u5B58\u547D\u4E2D",
   "trend.cacheScale": "\u5BF9\u6570",
+  "trend.amount": "\u5355\u6B65\u91D1\u989D",
+  "trend.amountScale": "\u7EBF\u6027 0\u2013\u5CF0\u503C",
   "trend.count": "{n} \u6B65",
   "trend.empty": "\u8BF7\u6C42\u592A\u5C11\uFF0C\u6682\u65F6\u65E0\u6CD5\u7ED8\u5236\u8D70\u52BF",
   "section.metrics": "\u4F1A\u8BDD\u6307\u6807",
@@ -1567,6 +1571,8 @@ function stepTrendPoints(steps, windowTokens) {
   const capacity = windowTokens !== null && Number.isFinite(windowTokens) && windowTokens > 0 ? windowTokens : null;
   return [...steps].sort((left, right) => left.at - right.at || left.turn - right.turn || left.step - right.step).map((step) => {
     const promptTokens = tokenOrZero(step.uncachedInputTokens) + tokenOrZero(step.cacheReadTokens) + tokenOrZero(step.cacheWriteTokens);
+    const cost = step.cost ?? null;
+    const amountMicros2 = cost !== null && Number.isFinite(cost.amountMicros) ? Math.max(0, cost.amountMicros) : null;
     return {
       at: step.at,
       turn: step.turn,
@@ -1574,7 +1580,9 @@ function stepTrendPoints(steps, windowTokens) {
       agentIndex: step.agentIndex ?? null,
       promptTokens,
       contextRatio: capacity === null || promptTokens <= 0 ? null : ratioOrNull(promptTokens / capacity),
-      cacheRatio: promptTokens <= 0 ? null : ratioOrNull(tokenOrZero(step.cacheReadTokens) / promptTokens)
+      cacheRatio: promptTokens <= 0 ? null : ratioOrNull(tokenOrZero(step.cacheReadTokens) / promptTokens),
+      amountMicros: amountMicros2,
+      amountCurrency: cost === null || amountMicros2 === null ? null : cost.currency
     };
   });
 }
@@ -2669,6 +2677,10 @@ var css2 = `
   background: var(--dsw-alias-state-success-primary);
 }
 
+.dsu-trend-key[data-series=amount] .dsu-trend-swatch {
+  background: var(--dsw-alias-state-done-primary);
+}
+
 .dsu-trend-key[data-series=threshold] .dsu-trend-swatch {
   height: 0;
   border-top: 2px dashed var(--dsw-alias-state-warn-label);
@@ -2718,6 +2730,10 @@ var css2 = `
   stroke: var(--dsw-alias-state-success-primary);
 }
 
+.dsu-trend-line[data-series=amount] {
+  stroke: var(--dsw-alias-state-done-primary);
+}
+
 .dsu-trend-line[data-series=cache][data-level=warn] {
   stroke: var(--dsw-alias-state-warn-primary);
 }
@@ -2732,6 +2748,10 @@ var css2 = `
 
 .dsu-trend-dot[data-series=cache] {
   fill: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-dot[data-series=amount] {
+  fill: var(--dsw-alias-state-done-primary);
 }
 
 .dsu-trend-dot[data-series=cache][data-level=warn] {
@@ -2772,6 +2792,10 @@ var css2 = `
 
 .dsu-trend-cursor[data-series=cache] {
   fill: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-cursor[data-series=amount] {
+  fill: var(--dsw-alias-state-done-primary);
 }
 
 .dsu-trend-cursor[data-series=cache][data-level=warn] {
@@ -2824,6 +2848,10 @@ var css2 = `
 
 .dsu-trend-tip-row[data-series=cache] .dsu-trend-swatch {
   background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-tip-row[data-series=amount] .dsu-trend-swatch {
+  background: var(--dsw-alias-state-done-primary);
 }
 
 .dsu-trend-tip-row[data-series=cache][data-level=warn] .dsu-trend-swatch {
@@ -3338,6 +3366,16 @@ function latestRatio(points, pick) {
   }
   return null;
 }
+function latestAmountValue(points) {
+  for (let index = points.length - 1; index >= 0; index -= 1) {
+    const point = points[index];
+    if (point === void 0 || point.amountMicros === null) continue;
+    const currency = point.amountCurrency;
+    if (currency === null) continue;
+    return { micros: point.amountMicros, currency };
+  }
+  return null;
+}
 function StepTrendChart(props) {
   const t = props.t;
   const points = props.points;
@@ -3360,6 +3398,14 @@ function StepTrendChart(props) {
   const cacheSegments = trendSegments(points, (point) => point.cacheRatio, xAt, cacheYAt);
   const latestContext = latestRatio(points, (point) => point.contextRatio);
   const latestCache = latestRatio(points, (point) => point.cacheRatio);
+  const amountMax = points.reduce(
+    (max, point) => point.amountMicros !== null && point.amountMicros > max ? point.amountMicros : max,
+    0
+  );
+  const showAmount = amountMax > 0;
+  const latestAmount = latestAmountValue(points);
+  const amountYAt = (micros) => TREND_PAD_Y + (1 - micros / amountMax) * plotHeight;
+  const amountPath = showAmount ? trendPath(points, (point) => point.amountMicros, xAt, amountYAt) : "";
   const threshold = props.threshold === null || props.threshold === void 0 ? null : Math.min(1, Math.max(0, props.threshold));
   const showDots = points.length <= 60;
   const hovered = hover === null ? void 0 : points[hover];
@@ -3379,6 +3425,12 @@ function StepTrendChart(props) {
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: latestCache === null ? "\u2014" : formatPercentFixed(latestCache, 3) }),
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsu-trend-scale", children: t("trend.cacheScale") })
       ] }),
+      showAmount && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "dsu-trend-key", "data-series": "amount", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),
+        t("trend.amount"),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: latestAmount === null ? "\u2014" : formatMoney(latestAmount.micros, latestAmount.currency) }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsu-trend-scale", children: t("trend.amountScale") })
+      ] }),
       threshold !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "dsu-trend-key", "data-series": "threshold", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),
         t("context.compaction"),
@@ -3391,7 +3443,7 @@ function StepTrendChart(props) {
         className: "dsu-trend-chart",
         ref: chartRef,
         role: "img",
-        "aria-label": `${t("trend.context")} / ${t("trend.cache")}`,
+        "aria-label": showAmount ? `${t("trend.context")} / ${t("trend.cache")} / ${t("trend.amount")}` : `${t("trend.context")} / ${t("trend.cache")}`,
         children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
             "svg",
@@ -3463,6 +3515,7 @@ function StepTrendChart(props) {
                   `cache-${position}`
                 )),
                 contextPath !== "" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { className: "dsu-trend-line", "data-series": "context", d: contextPath }),
+                amountPath !== "" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { className: "dsu-trend-line", "data-series": "amount", d: amountPath }),
                 cacheSegments.map((segment) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                   "line",
                   {
@@ -3497,6 +3550,16 @@ function StepTrendChart(props) {
                       cy: cacheYAt(point.cacheRatio),
                       r: 1.7
                     }
+                  ),
+                  point.amountMicros !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                    "circle",
+                    {
+                      className: "dsu-trend-dot",
+                      "data-series": "amount",
+                      cx: xAt(index),
+                      cy: amountYAt(point.amountMicros),
+                      r: 1.7
+                    }
                   )
                 ] }, `dot-${point.at}-${point.turn}-${point.step}`)),
                 hovered !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
@@ -3529,6 +3592,16 @@ function StepTrendChart(props) {
                     cy: cacheYAt(hovered.cacheRatio),
                     r: 3.2
                   }
+                ),
+                hovered !== void 0 && hovered.amountMicros !== null && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "circle",
+                  {
+                    className: "dsu-trend-cursor",
+                    "data-series": "amount",
+                    cx: hoverX,
+                    cy: amountYAt(hovered.amountMicros),
+                    r: 3.2
+                  }
                 )
               ]
             }
@@ -3559,7 +3632,12 @@ function StepTrendChart(props) {
                       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: hovered.cacheRatio === null ? "\u2014" : formatPercentFixed(hovered.cacheRatio, 3) })
                     ]
                   }
-                )
+                ),
+                showAmount && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsu-trend-tip-row", "data-series": "amount", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "dsu-trend-swatch", "aria-hidden": "true" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t("trend.amount") }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: hovered.amountMicros === null || hovered.amountCurrency === null ? "\u2014" : formatMoney(hovered.amountMicros, hovered.amountCurrency) })
+                ] })
               ]
             }
           )

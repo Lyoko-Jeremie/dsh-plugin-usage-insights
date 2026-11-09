@@ -49,6 +49,17 @@ The plugin adds two right-Sidebar pages.
   composition bar, followed by a colour legend with each part's figure. When the Host can read
   the automatic-compaction threshold, the first two bars carry an amber marker and the first row
   says `Auto-compact 50%`.
+- **Step trend**: three lines share the request axis below the context window (only the root
+  agent's own requests, never subagents'). The left axis is context occupancy on a logarithmic
+  scale (`log10(1+9r)`, so 0–50% takes about three quarters of the plot height and 0–25% about
+  half, ticked at 0% / 25% / 50% / 75% / 100% against the route's declared window); the right
+  axis is the cache hit rate on the same power scale as the cache-hit bars (0% / 90.1% / 100%);
+  the third is the per-step billed amount in violet, mapped linearly from `0` to the highest
+  amount in the current window and recomputed as those requests change, with unpriced steps
+  breaking the line. The legend shows each series' latest value, and the amber dashed line marks
+  the automatic-compaction threshold. Hovering anywhere over a request shows that step's time,
+  `turn.step`, occupancy with exact token counts, cache hit rate and billed amount. Clicking the
+  title collapses the section to its title and step count.
 - **Peak/off-peak rings**: two rings sit left of the context ring. `Peak/off (tokens)`
   splits the token counts by band, and `Peak/off (cost)` splits what those same requests
   actually cost in each band. Each draws the peak share as an amber arc over a green

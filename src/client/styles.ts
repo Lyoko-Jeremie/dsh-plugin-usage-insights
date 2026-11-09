@@ -1071,6 +1071,10 @@ export const css = `
   background: var(--dsw-alias-state-success-primary);
 }
 
+.dsu-trend-key[data-series=amount] .dsu-trend-swatch {
+  background: var(--dsw-alias-state-done-primary);
+}
+
 .dsu-trend-key[data-series=threshold] .dsu-trend-swatch {
   height: 0;
   border-top: 2px dashed var(--dsw-alias-state-warn-label);
@@ -1120,6 +1124,10 @@ export const css = `
   stroke: var(--dsw-alias-state-success-primary);
 }
 
+.dsu-trend-line[data-series=amount] {
+  stroke: var(--dsw-alias-state-done-primary);
+}
+
 .dsu-trend-line[data-series=cache][data-level=warn] {
   stroke: var(--dsw-alias-state-warn-primary);
 }
@@ -1134,6 +1142,10 @@ export const css = `
 
 .dsu-trend-dot[data-series=cache] {
   fill: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-dot[data-series=amount] {
+  fill: var(--dsw-alias-state-done-primary);
 }
 
 .dsu-trend-dot[data-series=cache][data-level=warn] {
@@ -1174,6 +1186,10 @@ export const css = `
 
 .dsu-trend-cursor[data-series=cache] {
   fill: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-cursor[data-series=amount] {
+  fill: var(--dsw-alias-state-done-primary);
 }
 
 .dsu-trend-cursor[data-series=cache][data-level=warn] {
@@ -1226,6 +1242,10 @@ export const css = `
 
 .dsu-trend-tip-row[data-series=cache] .dsu-trend-swatch {
   background: var(--dsw-alias-state-success-primary);
+}
+
+.dsu-trend-tip-row[data-series=amount] .dsu-trend-swatch {
+  background: var(--dsw-alias-state-done-primary);
 }
 
 .dsu-trend-tip-row[data-series=cache][data-level=warn] .dsu-trend-swatch {

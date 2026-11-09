@@ -943,17 +943,39 @@ function latestRatio(
 }
 
 /**
- * Two series over the request ledger: context occupancy and cache hit rate.
+ * Newest priced amount of the amount series.
+ *
+ * @param points - ascending trend points.
+ * @returns the amount and its currency, or null when no request was priced.
+ */
+function latestAmountValue(
+  points: readonly StepTrendPoint[],
+): { micros: number; currency: string } | null {
+  for (let index = points.length - 1; index >= 0; index -= 1) {
+    const point = points[index]
+    if (point === undefined || point.amountMicros === null) continue
+    const currency = point.amountCurrency
+    if (currency === null) continue
+    return { micros: point.amountMicros, currency }
+  }
+  return null
+}
+
+/**
+ * Three series over the request ledger: context occupancy, cache hit rate and
+ * billed amount.
  *
  * The left axis is a logarithmic context occupancy, so the 0–50% band where
  * early requests move takes about three quarters of the plot. The right axis is
  * the same power scale as the cache-hit bars, where 90% already sits halfway
  * up. Two axes let one plot show both facts without hiding the spread above
- * 90%. The dashed line marks the automatic-compaction threshold on the context
- * axis. Hovering anywhere over a request lights the whole column and shows both
- * of its values in one tooltip, so the two series can be read against each other
- * at the same step. The line is broken where a request billed no input instead
- * of reading as a zero.
+ * 90%. The amount line has its own linear scale from zero to the largest amount
+ * in the current window, recomputed on every render as those requests change.
+ * The dashed line marks the automatic-compaction threshold on the context axis.
+ * Hovering anywhere over a request lights the whole column and shows all three
+ * values in one tooltip, so the series can be read against each other at the
+ * same step. A line is broken where a request billed no input or had no
+ * configured price instead of reading as a zero.
  *
  * @param props - ascending samples, the declared capacity, the compaction threshold and the translate seat.
  * @returns the rendered trend chart.
@@ -991,6 +1013,14 @@ export function StepTrendChart(props: {
   const cacheSegments = trendSegments(points, point => point.cacheRatio, xAt, cacheYAt)
   const latestContext = latestRatio(points, point => point.contextRatio)
   const latestCache = latestRatio(points, point => point.cacheRatio)
+  const amountMax = points.reduce(
+    (max, point) => (point.amountMicros !== null && point.amountMicros > max ? point.amountMicros : max),
+    0,
+  )
+  const showAmount = amountMax > 0
+  const latestAmount = latestAmountValue(points)
+  const amountYAt = (micros: number): number => TREND_PAD_Y + (1 - micros / amountMax) * plotHeight
+  const amountPath = showAmount ? trendPath(points, point => point.amountMicros, xAt, amountYAt) : ''
   const threshold = props.threshold === null || props.threshold === undefined
     ? null
     : Math.min(1, Math.max(0, props.threshold))
@@ -1013,6 +1043,14 @@ export function StepTrendChart(props: {
           <b>{latestCache === null ? '—' : formatPercentFixed(latestCache, 3)}</b>
           <span className="dsu-trend-scale">{t('trend.cacheScale')}</span>
         </span>
+        {showAmount && (
+          <span className="dsu-trend-key" data-series="amount">
+            <i className="dsu-trend-swatch" aria-hidden="true" />
+            {t('trend.amount')}
+            <b>{latestAmount === null ? '—' : formatMoney(latestAmount.micros, latestAmount.currency)}</b>
+            <span className="dsu-trend-scale">{t('trend.amountScale')}</span>
+          </span>
+        )}
         {threshold !== null && (
           <span className="dsu-trend-key" data-series="threshold">
             <i className="dsu-trend-swatch" aria-hidden="true" />
@@ -1025,7 +1063,9 @@ export function StepTrendChart(props: {
         className="dsu-trend-chart"
         ref={chartRef}
         role="img"
-        aria-label={`${t('trend.context')} / ${t('trend.cache')}`}
+        aria-label={showAmount
+          ? `${t('trend.context')} / ${t('trend.cache')} / ${t('trend.amount')}`
+          : `${t('trend.context')} / ${t('trend.cache')}`}
       >
         <svg
           width={width}
@@ -1092,6 +1132,7 @@ export function StepTrendChart(props: {
             </text>
           ))}
           {contextPath !== '' && <path className="dsu-trend-line" data-series="context" d={contextPath} />}
+          {amountPath !== '' && <path className="dsu-trend-line" data-series="amount" d={amountPath} />}
           {cacheSegments.map(segment => (
             <line
               key={segment.key}
@@ -1125,6 +1166,15 @@ export function StepTrendChart(props: {
                   r={1.7}
                 />
               )}
+              {point.amountMicros !== null && (
+                <circle
+                  className="dsu-trend-dot"
+                  data-series="amount"
+                  cx={xAt(index)}
+                  cy={amountYAt(point.amountMicros)}
+                  r={1.7}
+                />
+              )}
             </g>
           ))}
           {hovered !== undefined && (
@@ -1152,6 +1202,15 @@ export function StepTrendChart(props: {
               data-level={trendHitLevel(hovered.cacheRatio) ?? 'normal'}
               cx={hoverX}
               cy={cacheYAt(hovered.cacheRatio)}
+              r={3.2}
+            />
+          )}
+          {hovered !== undefined && hovered.amountMicros !== null && (
+            <circle
+              className="dsu-trend-cursor"
+              data-series="amount"
+              cx={hoverX}
+              cy={amountYAt(hovered.amountMicros)}
               r={3.2}
             />
           )}
@@ -1184,6 +1243,15 @@ export function StepTrendChart(props: {
               <span>{t('trend.cache')}</span>
               <b>{hovered.cacheRatio === null ? '—' : formatPercentFixed(hovered.cacheRatio, 3)}</b>
             </div>
+            {showAmount && (
+              <div className="dsu-trend-tip-row" data-series="amount">
+                <i className="dsu-trend-swatch" aria-hidden="true" />
+                <span>{t('trend.amount')}</span>
+                <b>{hovered.amountMicros === null || hovered.amountCurrency === null
+                  ? '—'
+                  : formatMoney(hovered.amountMicros, hovered.amountCurrency)}</b>
+              </div>
+            )}
           </div>
         )}
       </div>

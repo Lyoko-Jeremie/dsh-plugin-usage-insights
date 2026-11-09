@@ -1,5 +1,5 @@
 /**
- * Per-request trend of context occupancy and cache hit rate.
+ * Per-request trend of context occupancy, cache hit rate and billed amount.
  *
  * The panel draws both series in the request ledger's own order, so this module
  * sorts the rows itself: a merged ledger arrives newest-first while a
@@ -9,7 +9,7 @@
  */
 import { HIT_GOOD_RATIO, HIT_WARN_RATIO, hitBarRatio } from './hit-scale.ts'
 import type { HitLevel } from './hit-scale.ts'
-import type { UsageStepView } from '../client/contract.ts'
+import type { CostView, UsageStepView } from '../client/contract.ts'
 
 /** One request of the trend, oldest first. */
 export interface StepTrendPoint {
@@ -25,12 +25,18 @@ export interface StepTrendPoint {
   contextRatio: number | null
   /** Cache reads over the billed prompt, in [0, 1]; null when no input was billed. */
   cacheRatio: number | null
+  /** Billed amount of the request; null without a configured price. */
+  amountMicros: number | null
+  /** Currency of {@link amountMicros}; null when the request stayed unpriced. */
+  amountCurrency: string | null
 }
 
 /** Request row the trend derives from; detail rows also carry an agent number. */
 export interface StepTrendRow extends UsageStepView {
   /** Subagent row number, absent for the root conversation. */
   agentIndex?: number | null
+  /** Priced amount of the request, absent on rows that carry no price view. */
+  cost?: CostView | null
 }
 
 /**
@@ -55,11 +61,12 @@ function tokenOrZero(value: number): number {
 }
 
 /**
- * Derive the two trend series from the request rows.
+ * Derive the trend series from the request rows.
  *
  * A request that billed no input carries no ratio at all: its prompt is not a
  * real occupancy sample, so the chart breaks the line instead of dropping it to
- * zero.
+ * zero. The amount series takes the request's priced amount and breaks the same
+ * way when the request had no configured price.
  *
  * @param steps - request rows of one conversation.
  * @param windowTokens - declared context capacity, or null without one.
@@ -78,6 +85,10 @@ export function stepTrendPoints(
       const promptTokens = tokenOrZero(step.uncachedInputTokens)
         + tokenOrZero(step.cacheReadTokens)
         + tokenOrZero(step.cacheWriteTokens)
+      const cost = step.cost ?? null
+      const amountMicros = cost !== null && Number.isFinite(cost.amountMicros)
+        ? Math.max(0, cost.amountMicros)
+        : null
       return {
         at: step.at,
         turn: step.turn,
@@ -90,6 +101,8 @@ export function stepTrendPoints(
         cacheRatio: promptTokens <= 0
           ? null
           : ratioOrNull(tokenOrZero(step.cacheReadTokens) / promptTokens),
+        amountMicros,
+        amountCurrency: cost === null || amountMicros === null ? null : cost.currency,
       }
     })
 }
