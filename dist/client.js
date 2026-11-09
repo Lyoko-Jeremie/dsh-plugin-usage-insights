@@ -2069,15 +2069,15 @@ var css2 = `
 }
 
 .dsu-amount-seg[data-part='uncachedInput'] {
-  background: var(--dsw-alias-state-warn-primary);
+  background: var(--dsw-alias-state-error-primary);
 }
 
 .dsu-amount-seg[data-part='cacheWrite'] {
-  background: var(--dsw-alias-state-business-primary);
+  background: var(--dsw-alias-state-warn-primary);
 }
 
 .dsu-amount-seg[data-part='output'] {
-  background: var(--dsw-alias-state-error-primary);
+  background: var(--dsw-alias-state-business-primary);
 }
 
 .dsu-amount-value {
@@ -2470,15 +2470,15 @@ var css2 = `
 }
 
 .dsu-swatch[data-part='uncachedInput'] {
-  background: var(--dsw-alias-state-warn-primary);
+  background: var(--dsw-alias-state-error-primary);
 }
 
 .dsu-swatch[data-part='cacheWrite'] {
-  background: var(--dsw-alias-state-business-primary);
+  background: var(--dsw-alias-state-warn-primary);
 }
 
 .dsu-swatch[data-part='output'] {
-  background: var(--dsw-alias-state-error-primary);
+  background: var(--dsw-alias-state-business-primary);
 }
 
 .dsu-bars-axis {
